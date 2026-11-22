@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using HarmonyLib;
 using LudeonTK;
 using Multiplayer.Client.AsyncTime;
@@ -169,23 +168,30 @@ namespace Multiplayer.Client
             if (Patches.GravshipCutsceneSync.HoldingSimulation) return true;
 
             int curTimer = Timer;
+            if (RunCommandsFor(Multiplayer.AsyncWorldTime, curTimer)) return true;
 
-            foreach (ITickable tickable in AllTickables)
+            // The world can change the map list, so capture it after processing the world's commands.
+            var maps = Find.Maps;
+            for (int i = maps.Count - 1; i >= 0; i--)
+                if (RunCommandsFor(maps[i].AsyncTime(), curTimer)) return true;
+
+            return false;
+        }
+
+        private static bool RunCommandsFor(ITickable tickable, int curTimer)
+        {
+            while (tickable.Cmds.Count > 0 && tickable.Cmds.Peek().ticks == curTimer)
             {
-                while (tickable.Cmds.Count > 0 && tickable.Cmds.Peek().ticks == curTimer)
-                {
-                    ScheduledCommand cmd = tickable.Cmds.Dequeue();
-                    // Minimal code impact fix for #733. Having all the commands be added to a single queue gets rid of
-                    // the out-of-order execution problem. With a proper fix, this can be reverted to tickable.ExecuteCmd
-                    var target = TickableById(cmd.mapId);
-                    if (target == null)
-                    {
-                        Log.Error($"!!! Tickable of {cmd.mapId} not found! {cmd}");
-                    } else target.ExecuteCmd(cmd);
+                ScheduledCommand cmd = tickable.Cmds.Dequeue();
+                // The shared queue preserves ordering, so the command's target can differ from its queue's owner.
+                var target = TickableById(cmd.mapId);
+                if (target == null)
+                    Log.Error($"!!! Tickable of {cmd.mapId} not found! {cmd}");
+                else
+                    target.ExecuteCmd(cmd);
 
-                    if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
-                    if (Patches.GravshipCutsceneSync.HoldingSimulation) return true;
-                }
+                if (LongEventHandler.eventQueue.Count > 0 || Patches.GravshipCutsceneSync.HoldingSimulation)
+                    return true;
             }
 
             return false;
@@ -219,14 +225,10 @@ namespace Multiplayer.Client
         {
             tickTimer.Restart();
 
-            foreach (ITickable tickable in AllTickables)
-            {
-                if (tickable.TimePerTick(tickable.DesiredTimeSpeed) == 0) continue;
-                tickable.TimeToTickThrough += 1f;
-
-                worked = true;
-                TickTickable(tickable);
-            }
+            TickIfRunning(Multiplayer.AsyncWorldTime, ref worked);
+            var maps = Find.Maps;
+            for (int i = maps.Count - 1; i >= 0; i--)
+                TickIfRunning(maps[i].AsyncTime(), ref worked);
 
             ConstantTicker.Tick();
 
@@ -242,6 +244,15 @@ namespace Multiplayer.Client
             }
 
             return false;
+        }
+
+        private static void TickIfRunning(ITickable tickable, ref bool worked)
+        {
+            if (tickable.TimePerTick(tickable.DesiredTimeSpeed) == 0f) return;
+
+            tickable.TimeToTickThrough += 1f;
+            worked = true;
+            TickTickable(tickable);
         }
 
         private static void TickTickable(ITickable tickable)
@@ -280,9 +291,8 @@ namespace Multiplayer.Client
 
         public static float TimePerTick(this ITickable tickable, TimeSpeed speed)
         {
-            if (tickable.ActualRateMultiplier(speed) == 0f)
-                return 0f;
-            return 1f / tickable.ActualRateMultiplier(speed);
+            var rate = tickable.ActualRateMultiplier(speed);
+            return rate == 0f ? 0f : 1f / rate;
         }
 
         public static float ActualRateMultiplier(this ITickable tickable, TimeSpeed speed)
@@ -291,8 +301,9 @@ namespace Multiplayer.Client
                 return tickable.TickRateMultiplier(speed);
 
             var rate = Multiplayer.AsyncWorldTime.TickRateMultiplier(speed);
-            foreach (var map in Find.Maps)
-                rate = Math.Min(rate, map.AsyncTime().TickRateMultiplier(speed));
+            var maps = Find.Maps;
+            for (int i = 0; i < maps.Count; i++)
+                rate = Math.Min(rate, maps[i].AsyncTime().TickRateMultiplier(speed));
 
             return rate;
         }
@@ -316,7 +327,17 @@ namespace Multiplayer.Client
 
         public static void SetTimer(int value) => Timer = value;
 
-        public static ITickable TickableById(int tickableId) => AllTickables.FirstOrDefault(t => t.TickableId == tickableId);
+        public static ITickable TickableById(int tickableId)
+        {
+            var world = Multiplayer.AsyncWorldTime;
+            if (world.TickableId == tickableId) return world;
+
+            var maps = Find.Maps;
+            for (int i = maps.Count - 1; i >= 0; i--)
+                if (maps[i].uniqueID == tickableId) return maps[i].AsyncTime();
+
+            return null;
+        }
     }
 
     public class SimulatingData

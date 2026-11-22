@@ -130,6 +130,8 @@ namespace Multiplayer.Client.Comp
         //Probably should move this to a class so its not a Dictionary of Lists
         private static readonly Dictionary<AsyncTimeComp, List<Quest>> mapQuestsCache = new Dictionary<AsyncTimeComp, List<Quest>>();
         private static readonly List<Quest> worldQuestsCache = new List<Quest>();
+        private static readonly List<List<Quest>> tickSnapshots = new();
+        private static int tickDepth;
 
         //List of quest parts that have mapParent as field
         private static readonly List<Type> questPartsToCheck = new List<Type>()
@@ -172,7 +174,12 @@ namespace Multiplayer.Client.Comp
         /// <param name="quest">Quest to remove</param>
         /// <returns>If quest is found in cache</returns>
         public static bool TryRemoveCachedQuest(Quest quest)
-            => mapQuestsCache.SingleOrDefault(x => x.Value.Contains(quest)).Value?.Remove(quest) ?? false | worldQuestsCache.Remove(quest);
+        {
+            foreach (var quests in mapQuestsCache.Values)
+                if (quests.Remove(quest)) return true;
+
+            return worldQuestsCache.Remove(quest);
+        }
 
         /// <summary>
         /// Attempts to get the MapAsyncTimeComp cached for that quest
@@ -182,7 +189,10 @@ namespace Multiplayer.Client.Comp
         public static AsyncTimeComp TryGetCachedQuestMap(Quest quest)
         {
             if (!Multiplayer.GameComp.asyncTime || quest == null) return null;
-            return mapQuestsCache.FirstOrDefault(x => x.Value.Contains(quest)).Key;
+            foreach (var entry in mapQuestsCache)
+                if (entry.Value.Contains(quest)) return entry.Key;
+
+            return null;
         }
 
         /// <summary>
@@ -248,11 +258,24 @@ namespace Multiplayer.Client.Comp
         /// Runs QuestTick() on all quests passed
         /// </summary>
         /// <param name="quests">Quests to run QuestTick() on</param>
-        private static void TickQuests(IEnumerable<Quest> quests)
+        private static void TickQuests(List<Quest> quests)
         {
-            foreach (var quest in quests)
+            if (quests.Count == 0) return;
+
+            // Quest ticks can remove quests and can reenter this method with another list.
+            if (tickDepth == tickSnapshots.Count)
+                tickSnapshots.Add(new List<Quest>());
+            var snapshot = tickSnapshots[tickDepth++];
+            try
             {
-                quest.QuestTick();
+                snapshot.AddRange(quests);
+                foreach (var quest in snapshot)
+                    quest.QuestTick();
+            }
+            finally
+            {
+                snapshot.Clear();
+                tickDepth--;
             }
         }
 
