@@ -16,6 +16,7 @@ namespace Multiplayer.Client
         public bool transparentChat = true;
         public int autosaveSlots = 5;
         public bool showDevInfo;
+        public bool diagnosticLogging;
         public bool includeReplayInDesync = VersionChecker.IsContinuousRelease;
         public int jittedMethodsInDesync = 1500;
         public int desyncTracesRadius = 40;
@@ -62,6 +63,7 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref transparentChat, "transparentChat", true);
             Scribe_Values.Look(ref autosaveSlots, "autosaveSlots", 5);
             Scribe_Values.Look(ref showDevInfo, "showDevInfo");
+            Scribe_Values.Look(ref diagnosticLogging, "diagnosticLogging");
             Scribe_Values.Look(ref includeReplayInDesync, "includeReplayInDesync", VersionChecker.IsContinuousRelease);
             Scribe_Values.Look(ref jittedMethodsInDesync, "jittedMethodsInDesync", 1500);
             Scribe_Values.Look(ref desyncTracesRadius, "desyncTracesRadius", 40);

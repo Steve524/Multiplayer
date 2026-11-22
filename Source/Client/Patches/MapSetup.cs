@@ -28,6 +28,7 @@ public static class MapSetup
 
         var async = CreateAsyncTimeCompForMap(map, usingMapTimeFromSingleplayer);
         Multiplayer.game.asyncTimeComps.Add(async);
+        MapLoadDiagnostic.OnMapSetup(async);
 
         // Store all current managers for Faction.OfPlayer
         InitFactionDataFromMap(map, Faction.OfPlayer);

@@ -109,6 +109,11 @@ public static class MpSettingsUI
         if (Prefs.DevMode)
         {
             listing.CheckboxLabeled("Show debug info", ref settings.showDevInfo);
+            bool diagnosticsWereEnabled = settings.diagnosticLogging;
+            listing.CheckboxLabeled("MpDiagnosticLogging".Translate(), ref settings.diagnosticLogging,
+                "MpDiagnosticLoggingDesc".Translate());
+            if (diagnosticsWereEnabled && !settings.diagnosticLogging)
+                MpDiagLog.Close();
             listing.TextFieldNumericLabeled("Desync radius:  ", ref settings.desyncTracesRadius, ref desyncRadiusBuffer, 1f,
                 200f);
             listing.TextFieldNumericLabeled("Jitted methods:  ", ref settings.jittedMethodsInDesync, ref jittedMethodsBuffer);

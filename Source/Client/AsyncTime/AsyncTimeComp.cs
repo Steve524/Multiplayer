@@ -81,6 +81,7 @@ namespace Multiplayer.Client
 
         public Map map;
         public int mapTicks;
+        internal int mapLoadDiagnosticTicksRemaining;
         private int gameStartAbsTickMap;
         private TimeSpeed timeSpeedInt;
         public bool forcedNormalSpeed;
@@ -126,6 +127,7 @@ namespace Multiplayer.Client
                 // Map removal can shift indices during the tick. IndexOf also handles a removed map.
                 game.currentMapIndex = (sbyte)(viewedMap == null ? -1 : game.Maps.IndexOf(viewedMap));
                 tickingMap = null;
+                MapLoadDiagnostic.OnTick(this);
             }
         }
 
