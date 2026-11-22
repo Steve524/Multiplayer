@@ -362,15 +362,20 @@ namespace Multiplayer.Client
                 var thingMethodPrefix = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.Prefix)));
                 var thingMethodFinalizer = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.Finalizer)));
                 var thingMethodPrefixSpawnSetup = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.Prefix_SpawnSetup)));
+                var thingMethodPrefixTick = new HarmonyMethod(typeof(ThingMethodPatches).GetMethod(nameof(ThingMethodPatches.Prefix_Tick)));
 
+                // Keep the context across vanilla's tick dispatch, including calls into base implementations.
+                TryPatch(AccessTools.DeclaredMethod(typeof(Thing), nameof(Thing.DoTick)), thingMethodPrefix, finalizer: thingMethodFinalizer);
+
+                var vanillaAssembly = typeof(Thing).Assembly;
                 var thingMethods = new[]
                 {
-                    ("Tick", Type.EmptyTypes),
-                    ("TickRare", Type.EmptyTypes),
-                    ("TickLong", Type.EmptyTypes),
-                    ("TickInterval", [typeof(int)]),
-                    ("TakeDamage", [typeof(DamageInfo)]),
-                    ("Kill", [typeof(DamageInfo?), typeof(Hediff)])
+                    ("Tick", Type.EmptyTypes, true),
+                    ("TickRare", Type.EmptyTypes, true),
+                    ("TickLong", Type.EmptyTypes, true),
+                    ("TickInterval", [typeof(int)], true),
+                    ("TakeDamage", [typeof(DamageInfo)], false),
+                    ("Kill", [typeof(DamageInfo?), typeof(Hediff)], false)
                 };
 
                 foreach (Type t in typeof(Thing).AllSubtypesAndSelf())
@@ -380,11 +385,13 @@ namespace Multiplayer.Client
                     if (spawnSetupMethod != null)
                         TryPatch(spawnSetupMethod, thingMethodPrefixSpawnSetup, finalizer: thingMethodFinalizer);
 
-                    foreach ((string m, Type[] args) in thingMethods)
+                    foreach (var (name, args, isTick) in thingMethods)
                     {
-                        MethodInfo method = t.GetMethod(m, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.NonPublic, null, args, null);
-                        if (method != null)
-                            TryPatch(method, thingMethodPrefix, finalizer: thingMethodFinalizer);
+                        if (isTick && t.Assembly == vanillaAssembly) continue;
+
+                        MethodInfo method = t.GetMethod(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly | BindingFlags.NonPublic, null, args, null);
+                        if (method != null && !method.IsAbstract)
+                            TryPatch(method, isTick ? thingMethodPrefixTick : thingMethodPrefix, finalizer: thingMethodFinalizer);
                     }
                 }
             }

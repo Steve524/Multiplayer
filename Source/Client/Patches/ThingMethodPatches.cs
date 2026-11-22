@@ -132,6 +132,15 @@ namespace Multiplayer.Client
         }
 
         [HarmonyPriority(MpPriority.MpFirst)]
+        public static void Prefix_Tick(Thing __instance, ref Container<Map>? __state)
+        {
+            if (Multiplayer.Client == null || ReferenceEquals(ThingContext.Current, __instance)) return;
+
+            // An override can also be called directly by a mod, outside Thing.DoTick.
+            Prefix(__instance, ref __state);
+        }
+
+        [HarmonyPriority(MpPriority.MpFirst)]
         public static void Prefix_SpawnSetup(Thing __instance, Map __0, ref Container<Map>? __state)
         {
             if (Multiplayer.Client == null) return;
