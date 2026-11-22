@@ -127,6 +127,8 @@
   <MpResetColors>Reset the colors</MpResetColors>
   <MpHideOtherPlayersInColonistBar>Hide other players in Colonist Bar</MpHideOtherPlayersInColonistBar>
   <MpGenerateDebugFile>Generate debug info</MpGenerateDebugFile>
+  <MpDiagnosticLogging>Diagnostic logging</MpDiagnosticLogging>
+  <MpDiagnosticLoggingDesc>Write map-load and self-tend desync diagnostics to MpLogs/MpDiagnostics.log.</MpDiagnosticLoggingDesc>
 
   <!-- Ping alert -->
   <MpAlertPing>Multiplayer ping</MpAlertPing>
