@@ -10,6 +10,7 @@ namespace Multiplayer.Common
     public class ByteWriter
     {
         private MemoryStream stream;
+        private byte[]? scalarBuffer;
         public object? context;
 
         public int Position => (int)stream.Position;
@@ -23,21 +24,38 @@ namespace Multiplayer.Common
 
         public virtual void WriteSByte(sbyte val) => stream.WriteByte((byte)val);
 
-        public virtual void WriteShort(short val) => stream.WriteBytes(BitConverter.GetBytes(val));
+        public virtual void WriteShort(short val) => WriteScalar(unchecked((ushort)val), sizeof(short));
 
-        public virtual void WriteUShort(ushort val) => stream.WriteBytes(BitConverter.GetBytes(val));
+        public virtual void WriteUShort(ushort val) => WriteScalar(val, sizeof(ushort));
 
-        public virtual void WriteInt32(int val) => stream.WriteBytes(BitConverter.GetBytes(val));
+        public virtual void WriteInt32(int val) => WriteScalar(unchecked((uint)val), sizeof(int));
 
-        public virtual void WriteUInt32(uint val) => stream.WriteBytes(BitConverter.GetBytes(val));
+        public virtual void WriteUInt32(uint val) => WriteScalar(val, sizeof(uint));
 
-        public virtual void WriteLong(long val) => stream.WriteBytes(BitConverter.GetBytes(val));
+        public virtual void WriteLong(long val) => WriteScalar(unchecked((ulong)val), sizeof(long));
 
-        public virtual void WriteULong(ulong val) => stream.WriteBytes(BitConverter.GetBytes(val));
+        public virtual void WriteULong(ulong val) => WriteScalar(val, sizeof(ulong));
 
-        public virtual void WriteFloat(float val) => stream.WriteBytes(BitConverter.GetBytes(val));
+        public virtual unsafe void WriteFloat(float val) => WriteScalar(*(uint*)&val, sizeof(float));
 
-        public virtual void WriteDouble(double val) => stream.WriteBytes(BitConverter.GetBytes(val));
+        public virtual void WriteDouble(double val) => WriteScalar(unchecked((ulong)BitConverter.DoubleToInt64Bits(val)), sizeof(double));
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void WriteScalar(ulong bits, int size)
+        {
+            var buffer = scalarBuffer ??= new byte[sizeof(ulong)];
+            for (int i = 0; i < size; i++)
+            {
+                buffer[i] = unchecked((byte)bits);
+                bits >>= 8;
+            }
+
+            // ByteReader uses BitConverter, so preserve its byte order on every platform.
+            if (!BitConverter.IsLittleEndian)
+                Array.Reverse(buffer, 0, size);
+
+            stream.Write(buffer, 0, size);
+        }
 
         public virtual void WriteBool(bool val) => stream.WriteByte(val ? (byte)1 : (byte)0);
 
