@@ -145,6 +145,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     public void PreContext()
     {
         MpTimeSpeed.SetOn(Find.TickManager, DesiredTimeSpeed);
+        SimulationCaches.InvalidateFrameKeyed();
         Rand.PushState();
         Rand.StateCompressed = randState;
 
@@ -217,6 +218,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
             if (cmdType == CommandType.CreateJoinPoint)
             {
+                SimulationCaches.ClearAll();
                 LongEventHandler.QueueLongEvent(CreateJoinPointAndSendIfHost, "MpCreatingJoinPoint", false, null);
             }
 

@@ -18,6 +18,7 @@ namespace Multiplayer.Client
 
             try
             {
+                SimulationCaches.InvalidateFrameKeyed();
                 TickShipCountdown(); // todo control the RNG seed here?
                 TickNonSimulation();
             }

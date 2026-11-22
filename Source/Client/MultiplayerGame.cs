@@ -37,6 +37,7 @@ namespace Multiplayer.Client
         public MultiplayerGame()
         {
             DeferredStackTracing.acc = 0;
+            SimulationCaches.ClearAll();
 
             Toils_Ingest.cardinals = GenAdj.CardinalDirections.ToList();
             Toils_Ingest.diagonals = GenAdj.DiagonalDirections.ToList();
@@ -107,6 +108,7 @@ namespace Multiplayer.Client
 
         public void OnDestroy()
         {
+            SimulationCaches.ClearAll();
             FactionContext.Clear();
             ThingContext.Clear();
         }
