@@ -40,9 +40,16 @@ namespace Multiplayer.Common
                 ByteReader reader = new ByteReader(packet.data);
                 var prevMapId = reader.ReadInt32();
                 var newMapId = reader.ReadInt32();
-                if (Player.currentMapId != prevMapId)
-                    ServerLog.Error($"Inconsistent player {Player.Username} map. Last known map: {Player.currentMapId}, " +
+                var serverMapId = Player.currentMapId;
+                // Every peer must apply the same transition from the server's last accepted view.
+                if (serverMapId != prevMapId)
+                {
+                    ServerLog.Detail($"Inconsistent player {Player.Username} map. Last known map: {serverMapId}, " +
                                     $"however received command with transition: {prevMapId} -> {newMapId}");
+                    packet.data = ByteWriter.GetBytes(serverMapId, newMapId);
+                }
+
+                packet.mapId = ScheduledCommand.Global;
                 Player.currentMapId = newMapId;
                 Player.hasReportedCurrentMap = true;
 

@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Saving;
 using Verse;
 using Verse.Profile;
@@ -30,7 +31,13 @@ namespace Multiplayer.Client
                 // todo revisit disconnection during loading
                 // todo loading can be async, concurrency issues
                 if (Multiplayer.Client != null)
+                {
+                    // A standalone server starting from an archive has no previous live connections.
+                    if (!Multiplayer.IsReplay && gameToLoad.SessionData.Length == 0)
+                        VTRSync.ClearPlayerCounts();
+
                     SessionData.ReadSessionData(gameToLoad.SessionData);
+                }
             }
             finally
             {

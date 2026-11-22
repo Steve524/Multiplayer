@@ -72,7 +72,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     public Queue<ScheduledCommand> Cmds => cmds;
     public Queue<ScheduledCommand> cmds = new();
 
-    public int CurrentPlayerCount { get; private set; }
+    public int CurrentPlayerCount { get; internal set; }
     public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
 
     public int TickableId => -1;
@@ -99,6 +99,10 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
         Scribe_Values.Look(ref timeSpeedInt, "timeSpeed");
         Scribe_Custom.LookULong(ref randState, "randState", 2);
+
+        int viewingPlayers = CurrentPlayerCount;
+        Scribe_Values.Look(ref viewingPlayers, "viewingPlayerCount");
+        CurrentPlayerCount = viewingPlayers;
 
         TimeSpeed timeSpeed = MpTimeSpeed.GetFrom(Find.TickManager);
         Scribe_Values.Look(ref timeSpeed, "timeSpeed");
@@ -260,13 +264,13 @@ public class AsyncWorldTimeComp : IExposable, ITickable
                 if (previousMapId >= 0)
                     prev = Find.Maps.FirstOrDefault(x => x.uniqueID == previousMapId)?.AsyncTime()?.DecreasePlayerCount() ?? -1;
                 else if (previousMapId == VTRSync.WorldMapId)
-                    prev = Multiplayer.AsyncWorldTime.CurrentPlayerCount -= 1;
+                    prev = CurrentPlayerCount = Math.Max(0, CurrentPlayerCount - 1);
 
                 var curr = -1;
                 if (newMapId >= 0)
                     curr = Find.Maps.FirstOrDefault(x => x.uniqueID == newMapId)?.AsyncTime()?.IncreasePlayerCount() ?? -1;
                 else if (newMapId == VTRSync.WorldMapId)
-                    curr = Multiplayer.AsyncWorldTime.CurrentPlayerCount += 1;
+                    curr = ++CurrentPlayerCount;
 
                 MpLog.Debug($"[{worldTicks}|{Multiplayer.session.remoteTickUntil}] Player count change: previousMapId={previousMapId} ({prev}), newMapId={newMapId} ({curr}), mapCount={mapCount}");
             }
