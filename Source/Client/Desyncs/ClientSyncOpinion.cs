@@ -35,35 +35,48 @@ namespace Multiplayer.Client
             if (roundMode != other.roundMode)
                 return $"FP round mode doesn't match: {roundMode} != {other.roundMode}";
 
-            if (!mapStates.Select(m => m.mapId).SequenceEqual(other.mapStates.Select(m => m.mapId)))
+            if (mapStates.Count != other.mapStates.Count)
                 return "Map instances don't match";
+            for (int i = 0; i < mapStates.Count; i++)
+                if (mapStates[i].mapId != other.mapStates[i].mapId)
+                    return "Map instances don't match";
 
-            foreach (var g in
-                     from map1 in mapStates
-                     join map2 in other.mapStates on map1.mapId equals map2.mapId
-                     select (map1, map2))
-            {
-                if (!g.map1.randomStates.SequenceEqual(g.map2.randomStates))
-                    return $"Wrong random state on map {g.map1.mapId}";
-            }
+            // Each opinion has one entry per map and both lists have the same order.
+            for (int i = 0; i < mapStates.Count; i++)
+                if (!ListsEqual(mapStates[i].randomStates, other.mapStates[i].randomStates))
+                    return $"Wrong random state on map {mapStates[i].mapId}";
 
-            if (!worldRandomStates.SequenceEqual(other.worldRandomStates))
+            if (!ListsEqual(worldRandomStates, other.worldRandomStates))
                 return "Wrong random state for the world";
 
-            if (!commandRandomStates.SequenceEqual(other.commandRandomStates))
+            if (!ListsEqual(commandRandomStates, other.commandRandomStates))
                 return "Random state from commands doesn't match";
 
-            if (!simulating && !other.simulating && desyncStackTraceHashes.Any() && other.desyncStackTraceHashes.Any() && !desyncStackTraceHashes.SequenceEqual(other.desyncStackTraceHashes))
+            if (!simulating && !other.simulating && desyncStackTraceHashes.Count > 0 && other.desyncStackTraceHashes.Count > 0 &&
+                !ListsEqual(desyncStackTraceHashes, other.desyncStackTraceHashes))
                 return "Trace hashes don't match";
 
             return null;
         }
 
+        private static bool ListsEqual<T>(List<T> lhs, List<T> rhs)
+        {
+            if (lhs.Count != rhs.Count) return false;
+
+            var comparer = EqualityComparer<T>.Default;
+            for (int i = 0; i < lhs.Count; i++)
+                if (!comparer.Equals(lhs[i], rhs[i])) return false;
+
+            return true;
+        }
+
         public List<uint> GetRandomStatesForMap(int mapId)
         {
-            var result = mapStates.Find(m => m.mapId == mapId);
-            if (result != null) return result.randomStates;
-            mapStates.Add(result = new MapRandomStateData(mapId));
+            for (int i = 0; i < mapStates.Count; i++)
+                if (mapStates[i].mapId == mapId) return mapStates[i].randomStates;
+
+            var result = new MapRandomStateData(mapId);
+            mapStates.Add(result);
             return result.randomStates;
         }
 
