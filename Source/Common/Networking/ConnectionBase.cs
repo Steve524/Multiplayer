@@ -44,6 +44,9 @@ namespace Multiplayer.Common
 
         public void Send<T>(T packet, bool reliable = true) where T : struct, IPacket
         {
+            if (State == ConnectionStateEnum.Disconnected)
+                return;
+
             var writer = new ByteWriter();
             packet.Bind(new PacketWriter(writer));
 
@@ -58,8 +61,9 @@ namespace Multiplayer.Common
             if (message.Length > MaxSinglePacketSize)
                 throw new PacketSendException($"Packet {id} too big for sending ({message.Length}>{MaxSinglePacketSize})");
 
+            // In-memory connections can retain the framed payload after this call.
             byte[] full = new byte[1 + message.Length];
-            full[0] = (byte)(Convert.ToByte(id) & 0x3F);
+            full[0] = (byte)((byte)id & 0x3F);
             message.CopyTo(full, 1);
 
             SendRaw(full, reliable);
@@ -114,7 +118,7 @@ namespace Multiplayer.Common
                     ? Math.Min(maxFragmentSize - 6, message.Length - read)
                     : Math.Min(maxFragmentSize, message.Length - read);
                 int fragState = (read + len >= message.Length) ? FragEnd : FragMore;
-                byte headerByte = (byte)((Convert.ToByte(id) & 0x3F) | fragState);
+                byte headerByte = (byte)(((byte)id & 0x3F) | fragState);
 
                 // Write the packet id and fragment state: MORE or END
                 writer.WriteByte(headerByte);
@@ -130,7 +134,7 @@ namespace Multiplayer.Common
                 // Copy the message fragment
                 writer.WriteFrom(message, read, len);
 
-                // SendRaw copies this data so we can freely clear the writer after it executes.
+                // ToArray gives the transport an independent buffer before we reset the writer.
                 SendRaw(writer.ToArray(), reliable: true);
                 writer.SetLength(0);
 
