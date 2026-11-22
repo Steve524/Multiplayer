@@ -473,10 +473,14 @@ namespace Multiplayer.Client
             nothingHappeningCached = true;
             var list = map.mapPawns.SpawnedPawnsInFaction(Faction.OfPlayer);
 
-            foreach (var pawn in list)
+            for (int i = 0; i < list.Count; i++)
             {
+                var pawn = list[i];
                 if (pawn.HostFaction == null && pawn.RaceProps.Humanlike && pawn.Awake())
+                {
                     nothingHappeningCached = false;
+                    break;
+                }
             }
 
             if (nothingHappeningCached && map.IsPlayerHome && map.dangerWatcher.DangerRating >= StoryDanger.Low)

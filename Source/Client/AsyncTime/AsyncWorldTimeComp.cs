@@ -49,11 +49,22 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     // Run at the speed of the fastest map or at chosen speed if there are no maps
     public TimeSpeed DesiredTimeSpeed
     {
-        get => !Find.Maps.Any()
-            ? timeSpeedInt
-            : Find.Maps.Select(m => m.AsyncTime())
-                .Where(a => a.ActualRateMultiplier(a.DesiredTimeSpeed) != 0f)
-                .Max(a => a?.DesiredTimeSpeed) ?? TimeSpeed.Paused;
+        get
+        {
+            var maps = Find.Maps;
+            if (maps.Count == 0) return timeSpeedInt;
+
+            TimeSpeed? fastest = null;
+            for (int i = 0; i < maps.Count; i++)
+            {
+                var mapTime = maps[i].AsyncTime();
+                var speed = mapTime.DesiredTimeSpeed;
+                if (mapTime.ActualRateMultiplier(speed) != 0f && (fastest == null || speed > fastest.Value))
+                    fastest = speed;
+            }
+
+            return fastest ?? TimeSpeed.Paused;
+        }
         set => timeSpeedInt = value;
     }
 
