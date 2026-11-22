@@ -17,4 +17,7 @@ public enum CommandType : byte
     MapTimeSpeed,
     Designator,
     PlayerCount,
+
+    // Global scope. Append new values so recorded commands keep their IDs.
+    GravshipCutsceneEnded,
 }

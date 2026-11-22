@@ -68,6 +68,24 @@ public class FreezeManagerTest
     }
 
     [Test]
+    public void HostReady_GivesFrozenPeerTimeToFinishCutscene()
+    {
+        var host = AddPlayer("host", isHost: true);
+        var peer = AddPlayer("peer");
+        host.frozen = peer.frozen = true;
+        server.freezeManager.Tick();
+
+        host.frozen = false;
+        host.unfrozenAt = server.NetTimer - 59 * MultiplayerServer.NetTicksPerSecond;
+        server.freezeManager.Tick();
+        Assert.That(server.freezeManager.Frozen, Is.True);
+
+        peer.frozen = false;
+        server.freezeManager.Tick();
+        Assert.That(server.freezeManager.Frozen, Is.False);
+    }
+
+    [Test]
     public void HostAbsent_PlayersPresent_NotFrozen()
     {
         // Host was never added — only a non-host player is present

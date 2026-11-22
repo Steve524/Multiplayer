@@ -33,6 +33,7 @@ namespace Multiplayer.Client
         public float? lastSaveAt;
 
         public bool replay;
+        public int replayProtocol;
         public int replayTimerStart = -1;
         public int replayTimerEnd = -1;
         public bool showTimeline;

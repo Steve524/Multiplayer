@@ -109,6 +109,7 @@ namespace Multiplayer.Client
         public void OnDestroy()
         {
             SimulationCaches.ClearAll();
+            Patches.GravshipCutsceneSync.Reset();
             FactionContext.Clear();
             ThingContext.Clear();
         }

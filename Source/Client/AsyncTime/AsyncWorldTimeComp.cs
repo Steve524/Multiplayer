@@ -218,9 +218,11 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
             if (cmdType == CommandType.CreateJoinPoint)
             {
-                SimulationCaches.ClearAll();
-                LongEventHandler.QueueLongEvent(CreateJoinPointAndSendIfHost, "MpCreatingJoinPoint", false, null);
+                GravshipCutsceneSync.RunOrDeferJoinPoint(QueueJoinPoint);
             }
+
+            if (cmdType == CommandType.GravshipCutsceneEnded)
+                GravshipCutsceneSync.Finish(data.ReadInt32(), data.ReadInt32(), data.ReadBool());
 
             if (cmdType == CommandType.InitPlayerData)
             {
@@ -272,6 +274,12 @@ public class AsyncWorldTimeComp : IExposable, ITickable
             if (cmdType != CommandType.GlobalTimeSpeed)
                 Multiplayer.ReaderLog.AddCurrentNode(data);
         }
+    }
+
+    private static void QueueJoinPoint()
+    {
+        SimulationCaches.ClearAll();
+        LongEventHandler.QueueLongEvent(CreateJoinPointAndSendIfHost, "MpCreatingJoinPoint", false, null);
     }
 
     private static void CreateJoinPointAndSendIfHost()

@@ -181,23 +181,24 @@ namespace Multiplayer.Client.Patches
             yield return AccessTools.Method(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.InitiateLanding));
         }
 
-        static void Postfix()
+        static void Postfix(WorldComponent_GravshipController __instance)
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.Client == null || !WorldComponent_GravshipController.cutsceneInProgress) return;
 
-            GravshipTravelUtils.StartFreeze();
+            GravshipCutsceneSync.Start(__instance);
         }
     }
 
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.TakeoffEnded))]
     public static class PatchGravshipTakeoffEnded
     {
-        static void Prefix(WorldComponent_GravshipController __instance)
+        static bool Prefix(WorldComponent_GravshipController __instance)
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.Client == null) return true;
+            if (!GravshipCutsceneSync.AllowLocalCompletion(__instance)) return false;
 
-            GravshipTravelUtils.StopFreeze();
             GravshipTravelUtils.CloseSessionAt(__instance.takeoffTile);
+            return true;
         }
     }
 
@@ -205,25 +206,26 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(WorldComponent_GravshipController), nameof(WorldComponent_GravshipController.LandingEnded))]
     public static class PatchGravshipLandingEnded
     {
-        static void Prefix(WorldComponent_GravshipController __instance)
+        static bool Prefix(WorldComponent_GravshipController __instance, ref bool __state)
         {
-            if (Multiplayer.Client == null) return;
+            if (Multiplayer.Client == null) return true;
+            if (!GravshipCutsceneSync.AllowLocalCompletion(__instance)) return false;
 
             Rand.PushState();
+            __state = true;
             Rand.StateCompressed = __instance.map.AsyncTime().randState;
 
-            GravshipTravelUtils.StopFreeze();
             GravshipTravelUtils.CloseSessionAt(__instance.gravship.destinationTile);
 
             // LandingEnded calls Find.TickManager.CurTimeSpeed = TimeSpeed.Normal, but that doesn't work in MP as we
             // have our own way of changing the map speed.
             __instance.map.AsyncTime().DesiredTimeSpeed = TimeSpeed.Normal;
+            return true;
         }
 
-        static void Finalizer()
+        static void Finalizer(bool __state)
         {
-            if (Multiplayer.Client == null) return;
-            Rand.PopState();
+            if (__state) Rand.PopState();
         }
     }
     #endregion

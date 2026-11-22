@@ -132,6 +132,7 @@ namespace Multiplayer.Client
 
             var replay = ForLoading(file);
             replay.LoadInfo();
+            session.replayProtocol = replay.info.protocol;
 
             var sectionIndex = toEnd ? (replay.info.sections.Count - 1) : 0;
             session.dataSnapshot = replay.LoadGameData(sectionIndex);

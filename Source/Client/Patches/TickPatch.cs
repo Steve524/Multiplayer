@@ -110,8 +110,7 @@ namespace Multiplayer.Client
             if (MpVersion.IsDebug)
                 SimpleProfiler.Start();
 
-            RunCmds();
-            if  (LongEventHandler.eventQueue.Count == 0)
+            if (!RunCmds() && LongEventHandler.eventQueue.Count == 0)
             {
                 DoUpdate(out var worked);
                 if (worked) workTicks++;
@@ -167,6 +166,8 @@ namespace Multiplayer.Client
 
         private static bool RunCmds()
         {
+            if (Patches.GravshipCutsceneSync.HoldingSimulation) return true;
+
             int curTimer = Timer;
 
             foreach (ITickable tickable in AllTickables)
@@ -183,6 +184,7 @@ namespace Multiplayer.Client
                     } else target.ExecuteCmd(cmd);
 
                     if (LongEventHandler.eventQueue.Count > 0) return true; // Yield to e.g. join-point creation
+                    if (Patches.GravshipCutsceneSync.HoldingSimulation) return true;
                 }
             }
 
