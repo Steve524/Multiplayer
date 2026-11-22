@@ -1,4 +1,3 @@
-using HarmonyLib;
 using Multiplayer.API;
 using System;
 using System.Collections;
@@ -147,7 +146,7 @@ namespace Multiplayer.Common
                 }
 
                 if (type.IsEnum) {
-                    Type underlyingType = Enum.GetUnderlyingType(type);
+                    Type underlyingType = SyncTypeCache.For(type).EnumUnderlyingType;
 
                     return Enum.ToObject(type, ReadSyncObject(data, underlyingType)!);
                 }
@@ -161,7 +160,7 @@ namespace Multiplayer.Common
                     if (length == ushort.MaxValue)
                         return null;
 
-                    Type elementType = type.GetElementType()!;
+                    Type elementType = SyncTypeCache.For(type).ElementType;
                     Array arr = Array.CreateInstance(elementType, length);
 
                     for (int i = 0; i < length; i++)
@@ -172,7 +171,8 @@ namespace Multiplayer.Common
 
                 if (type.IsGenericType)
                 {
-                    var genericTypeDefinition = type.GetGenericTypeDefinition();
+                    var cached = SyncTypeCache.For(type);
+                    var genericTypeDefinition = cached.GenericDefinition;
 
                     if (genericTypeDefinition == typeof(List<>))
                     {
@@ -180,8 +180,8 @@ namespace Multiplayer.Common
                         if (size == ushort.MaxValue)
                             return null;
 
-                        Type listObjType = type.GetGenericArguments()[0];
-                        IList list = (IList)Activator.CreateInstance(type, size);
+                        Type listObjType = cached.Arguments[0];
+                        IList list = cached.CreateList(size);
 
                         for (int j = 0; j < size; j++)
                             list.Add(ReadSyncObject(data, listObjType));
@@ -191,8 +191,8 @@ namespace Multiplayer.Common
 
                     if (genericTypeDefinition == typeof(IEnumerable<>))
                     {
-                        Type element = type.GetGenericArguments()[0];
-                        return ReadSyncObject(data, typeof(List<>).MakeGenericType(element));
+                        Type element = cached.Arguments[0];
+                        return ReadSyncObject(data, SyncTypeCache.For(element).ListType);
                     }
 
                     if (genericTypeDefinition == typeof(Nullable<>))
@@ -200,20 +200,20 @@ namespace Multiplayer.Common
                         bool isNull = data.ReadBool();
                         if (isNull) return null;
 
-                        return Activator.CreateInstance(type, ReadSyncObject(data, Nullable.GetUnderlyingType(type)));
+                        return Activator.CreateInstance(type, ReadSyncObject(data, cached.Arguments[0]));
                     }
 
                     if (genericTypeDefinition == typeof(Dictionary<,>))
                     {
-                        Type[] arguments = type.GetGenericArguments();
+                        Type[] arguments = cached.Arguments;
 
-                        Array? keys = (Array?)ReadSyncObject(data, arguments[0].MakeArrayType());
+                        Array? keys = (Array?)ReadSyncObject(data, SyncTypeCache.For(arguments[0]).ArrayType);
                         if (keys == null)
                             return null;
 
-                        Array values = (Array)ReadSyncObject(data, arguments[1].MakeArrayType())!;
+                        Array values = (Array)ReadSyncObject(data, SyncTypeCache.For(arguments[1]).ArrayType)!;
 
-                        IDictionary dictionary = (IDictionary)Activator.CreateInstance(type);
+                        IDictionary dictionary = cached.CreateDictionary();
                         for (int i = 0; i < keys.Length; i++)
                         {
                             var key = keys.GetValue(i);
@@ -226,27 +226,27 @@ namespace Multiplayer.Common
 
                     if (genericTypeDefinition == typeof(HashSet<>))
                     {
-                        Type element = type.GetGenericArguments()[0];
-                        object? list = ReadSyncObject(data, typeof(List<>).MakeGenericType(element));
-                        return list == null ? null : Activator.CreateInstance(typeof(HashSet<>).MakeGenericType(element), list);
+                        Type element = cached.Arguments[0];
+                        object? list = ReadSyncObject(data, SyncTypeCache.For(element).ListType);
+                        return list == null ? null : Activator.CreateInstance(type, list);
                     }
 
                     if (genericTypeDefinition == typeof(ValueTuple<,>)) // Binary ValueTuple
                     {
-                        Type[] arguments = type.GetGenericArguments();
+                        Type[] arguments = cached.Arguments;
                         object?[] parameters =
                         [
                             ReadSyncObject(data, arguments[0]),
                             ReadSyncObject(data, arguments[1])
                         ];
 
-                        return type.GetConstructors().First().Invoke(parameters);
+                        return cached.TupleConstructor.Invoke(parameters);
                     }
 
                     // todo handle null non-value Tuples?
                     if (typeof(ITuple).IsAssignableFrom(genericTypeDefinition)) // ValueTuple or Tuple
                     {
-                        Type[] arguments = type.GetGenericArguments();
+                        Type[] arguments = cached.Arguments;
 
                         int size = data.ReadInt32();
                         object?[] values = new object?[size];
@@ -254,7 +254,7 @@ namespace Multiplayer.Common
                         for (int i = 0; i < size; i++)
                             values[i] = ReadSyncObject(data, arguments[i]);
 
-                        return type.GetConstructors().First().Invoke(values);
+                        return cached.TupleConstructor.Invoke(values);
                     }
                 }
 
@@ -330,7 +330,7 @@ namespace Multiplayer.Common
 
                 if (type.IsEnum)
                 {
-                    Type enumType = Enum.GetUnderlyingType(type);
+                    Type enumType = SyncTypeCache.For(type).EnumUnderlyingType;
                     WriteSyncObject(data, Convert.ChangeType(obj, enumType), enumType);
                     return;
                 }
@@ -340,7 +340,7 @@ namespace Multiplayer.Common
                     if (type.GetArrayRank() != 1)
                         throw new SerializationException("Multi dimensional arrays aren't supported.");
 
-                    Type elementType = type.GetElementType()!;
+                    Type elementType = SyncTypeCache.For(type).ElementType;
                     Array? arr = (Array?)obj;
 
                     if (arr == null)
@@ -360,12 +360,13 @@ namespace Multiplayer.Common
                 }
 
                 if (type.IsGenericType) {
-                    Type genericTypeDefinition = type.GetGenericTypeDefinition();
+                    var cached = SyncTypeCache.For(type);
+                    Type genericTypeDefinition = cached.GenericDefinition;
 
                     if (genericTypeDefinition == typeof(List<>))
                     {
                         IList? list = (IList?)obj;
-                        Type listObjType = type.GetGenericArguments()[0];
+                        Type listObjType = cached.Arguments[0];
 
                         if (list == null)
                         {
@@ -386,8 +387,8 @@ namespace Multiplayer.Common
                     if (genericTypeDefinition == typeof(IEnumerable<>) || genericTypeDefinition == typeof(HashSet<>))
                     {
                         IEnumerable? e = (IEnumerable?)obj;
-                        Type elementType = type.GetGenericArguments()[0];
-                        var listType = typeof(List<>).MakeGenericType(elementType);
+                        Type elementType = cached.Arguments[0];
+                        var listType = SyncTypeCache.For(elementType).ListType;
 
                         if (e == null)
                         {
@@ -395,7 +396,7 @@ namespace Multiplayer.Common
                             return;
                         }
 
-                        IList list = (IList)Activator.CreateInstance(listType);
+                        IList list = SyncTypeCache.For(listType).CreateList(0);
 
                         foreach (var o in e)
                             list.Add(o);
@@ -411,7 +412,7 @@ namespace Multiplayer.Common
                         data.WriteBool(isNull);
                         if (isNull) return;
 
-                        WriteSyncObject(data, obj, Nullable.GetUnderlyingType(type));
+                        WriteSyncObject(data, obj, cached.Arguments[0]);
 
                         return;
                     }
@@ -419,11 +420,11 @@ namespace Multiplayer.Common
                     if (genericTypeDefinition == typeof(Dictionary<,>))
                     {
                         IDictionary? dictionary = (IDictionary?)obj;
-                        Type[] arguments = type.GetGenericArguments();
+                        Type[] arguments = cached.Arguments;
 
                         if (dictionary == null)
                         {
-                            WriteSyncObject(data, null, arguments[0].MakeArrayType());
+                            WriteSyncObject(data, null, SyncTypeCache.For(arguments[0]).ArrayType);
                             return;
                         }
 
@@ -441,17 +442,18 @@ namespace Multiplayer.Common
 
                     if (genericTypeDefinition == typeof(ValueTuple<,>))
                     {
-                        Type[] arguments = type.GetGenericArguments();
+                        Type[] arguments = cached.Arguments;
+                        var fields = cached.BinaryTupleFields;
 
-                        WriteSyncObject(data, AccessTools.DeclaredField(type, "Item1").GetValue(obj), arguments[0]);
-                        WriteSyncObject(data, AccessTools.DeclaredField(type, "Item2").GetValue(obj), arguments[1]);
+                        WriteSyncObject(data, fields[0].GetValue(obj), arguments[0]);
+                        WriteSyncObject(data, fields[1].GetValue(obj), arguments[1]);
 
                         return;
                     }
 
                     if (typeof(ITuple).IsAssignableFrom(genericTypeDefinition)) // ValueTuple or Tuple
                     {
-                        Type[] arguments = type.GetGenericArguments();
+                        Type[] arguments = cached.Arguments;
                         ITuple tuple = (ITuple)obj!;
 
                         data.WriteInt32(tuple.Length);

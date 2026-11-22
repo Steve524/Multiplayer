@@ -29,6 +29,58 @@ public class SerializationTest
     }
 
     [Test]
+    public void NestedCollectionMatchesTheExistingWireFormat()
+    {
+        var serialization = new SyncSerialization(new TestTypeHelper());
+        var input = new Dictionary<ushort, (ShortCode?, IEnumerable<int>)>
+        {
+            [0x1234] = (ShortCode.Negative, [0x01020304, -2])
+        };
+
+        byte[] recorded =
+        [
+            1, 0, 0x34, 0x12,   // The dictionary's key array.
+            1, 0,               // The dictionary's value array.
+            0, 0xFE, 0xFF,      // Non-null enum value.
+            2, 0, 4, 3, 2, 1, 0xFE, 0xFF, 0xFF, 0xFF
+        ];
+        var writer = new ByteWriter();
+        serialization.WriteSync(writer, input);
+        Assert.That(writer.ToArray(), Is.EqualTo(recorded));
+
+        var reader = new ByteReader(recorded);
+        var result = serialization.ReadSync<Dictionary<ushort, (ShortCode?, IEnumerable<int>)>>(reader)!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(result[0x1234].Item1, Is.EqualTo(ShortCode.Negative));
+            Assert.That(result[0x1234].Item2, Is.EqualTo(new[] { 0x01020304, -2 }));
+            Assert.That(reader.Left, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void NullCollectionsAndReferenceTuplesStillRoundTrip()
+    {
+        var serialization = new SyncSerialization(new TestTypeHelper());
+        var tuple = Tuple.Create<ShortCode?, HashSet<int>?, string[]>(null, [5, 8], ["one", "two"]);
+        var result = RoundtripSerialization(serialization, tuple)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Item1, Is.Null);
+            Assert.That(result.Item2, Is.EquivalentTo(new[] { 5, 8 }));
+            Assert.That(result.Item3, Is.EqualTo(tuple.Item3));
+            Assert.That(RoundtripSerialization<HashSet<int>>(serialization, null), Is.Null);
+            Assert.That(RoundtripSerialization<Dictionary<ushort, int>>(serialization, null), Is.Null);
+        });
+    }
+
+    private enum ShortCode : short
+    {
+        Negative = -2
+    }
+
+    [Test]
     public void BasicSyncWorkers()
     {
         var ser = new SyncSerialization(new TestTypeHelper());
