@@ -1,6 +1,5 @@
 ﻿using System.Linq;
 using Multiplayer.Common.Networking.Packet;
-using Verse;
 
 namespace Multiplayer.Common
 {
@@ -25,7 +24,8 @@ namespace Multiplayer.Common
             Server = server;
         }
 
-        private const int MaxFreezeWaitTime = GenTicks.TicksPerRealSecond * 10; // 10 seconds
+        // Peers can finish a gravship capture and animation later than the host.
+        private const int MaxFreezeWaitTime = MultiplayerServer.NetTicksPerSecond * 60;
 
         public void Tick()
         {

@@ -265,6 +265,23 @@ public class PacketTest
     }
 
     [Test]
+    public void GravshipCompletionKeepsExistingCommandIdsAndRoundtrips()
+    {
+        var payload = ByteWriter.GetBytes(12, 34, true);
+        var command = new ScheduledCommand(CommandType.GravshipCutsceneEnded, 35, 2, ScheduledCommand.Global, 1, payload);
+        var encoded = ScheduledCommand.Serialize(command);
+        var decoded = ScheduledCommand.Deserialize(new ByteReader(encoded));
+
+        ((byte)CommandType.PlayerCount).Should().Be(9);
+        encoded[0].Should().Be(10);
+        decoded.Should().BeEquivalentTo(command);
+        var reader = new ByteReader(decoded.data);
+        reader.ReadInt32().Should().Be(12);
+        reader.ReadInt32().Should().Be(34);
+        reader.ReadBool().Should().BeTrue();
+    }
+
+    [Test]
     public async Task SnapshotBinaryRepresentation()
     {
         var packetsByType = RoundtripPackets().GroupBy(p => p.GetType());
