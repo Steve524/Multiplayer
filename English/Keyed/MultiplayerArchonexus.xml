@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <MpArchonexusChooseThings>Choose what to take to the new colony</MpArchonexusChooseThings>
+  <MpArchonexusChooseSite>Choose the new colony site</MpArchonexusChooseSite>
+  <MpArchonexusOtherChoosing>Another player chose what to take to the new colony and is now picking the site.</MpArchonexusOtherChoosing>
+  <MpArchonexusMultifaction>Founding a new colony through the Archonexus isn't supported in multifaction games.</MpArchonexusMultifaction>
+</LanguageData>
