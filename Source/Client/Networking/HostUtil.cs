@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Networking;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
 using RimWorld;
@@ -76,6 +77,7 @@ namespace Multiplayer.Client
 
         private static void PrepareGame()
         {
+            VTRSync.ClearPlayerCounts();
             foreach (var tickable in TickPatch.AllTickables)
                 tickable.Cmds.Clear();
 

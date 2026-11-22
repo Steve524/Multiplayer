@@ -106,6 +106,27 @@ public class StandaloneMapStreamingTest
     }
 
     [Test]
+    public void PlayerCountReportUsesServerPreviousMapAndGlobalQueue()
+    {
+        var (player, _) = AddPlayer("player", 3);
+
+        player.conn.GetState<ServerPlayingState>()!.HandleClientCommand(new ClientCommandPacket(
+            CommandType.PlayerCount,
+            5,
+            ByteWriter.GetBytes(-1, 5)
+        ));
+
+        var raw = server.worldData.mapCmds[ScheduledCommand.Global].Single();
+        var command = ScheduledCommand.Deserialize(new ByteReader(raw));
+        var data = new ByteReader(command.data);
+        Assert.That(player.currentMapId, Is.EqualTo(5));
+        Assert.That(command.type, Is.EqualTo(CommandType.PlayerCount));
+        Assert.That(command.mapId, Is.EqualTo(ScheduledCommand.Global));
+        Assert.That(data.ReadInt32(), Is.EqualTo(3));
+        Assert.That(data.ReadInt32(), Is.EqualTo(5));
+    }
+
+    [Test]
     public void WorldToMapTransition_DoesNotSendMapResponse()
     {
         server.worldData.mapData[5] = [9, 9, 9];

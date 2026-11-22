@@ -1,5 +1,6 @@
 using Multiplayer.Client.DebugUi;
 using Multiplayer.Client.Networking;
+using Multiplayer.Client.Patches;
 using Multiplayer.Common;
 using System;
 using System.Collections.Generic;
@@ -33,6 +34,7 @@ namespace Multiplayer.Client
 
             Multiplayer.session.Update();
             SyncFieldUtil.UpdateSync();
+            VTRSync.UpdateViewedMap();
 
             if (PerformanceRecorder.IsRecording)
             {

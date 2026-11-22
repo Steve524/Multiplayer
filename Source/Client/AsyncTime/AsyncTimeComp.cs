@@ -100,8 +100,8 @@ namespace Multiplayer.Client
 
         public Queue<ScheduledCommand> cmds = new();
 
-        public int CurrentPlayerCount { get; private set; }
-        public int VTR => CurrentPlayerCount > 0 ? VTRSync.MinimumVtr : VTRSync.MaximumVtr;
+        public int CurrentPlayerCount { get; internal set; }
+        public int VTR => CurrentPlayerCount > 0 ? VTRSync.ViewedThingVtr : VTRSync.MaximumVtr;
 
         public AsyncTimeComp(Map map, int gameStartAbsTick = 0)
         {
@@ -234,6 +234,10 @@ namespace Multiplayer.Client
             Scribe_Values.Look(ref gameStartAbsTickMap, "gameStartAbsTickMap");
 
             Scribe_Custom.LookULong(ref randState, "randState", 1);
+
+            int viewingPlayers = CurrentPlayerCount;
+            Scribe_Values.Look(ref viewingPlayers, "viewingPlayerCount");
+            CurrentPlayerCount = viewingPlayers;
         }
 
         public int IncreasePlayerCount() => CurrentPlayerCount += 1;
