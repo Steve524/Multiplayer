@@ -7,7 +7,8 @@ namespace Multiplayer.Common
     {
         public const string SimpleVersion = "0.11.5";
         public const int GravshipCutsceneProtocol = 60;
-        public const int Protocol = GravshipCutsceneProtocol;
+        public const int ArchonexusProtocol = 61;
+        public const int Protocol = ArchonexusProtocol;
 
         public static readonly string? GitHash = Assembly.GetExecutingAssembly()
             .GetCustomAttributes<AssemblyMetadataAttribute>()
