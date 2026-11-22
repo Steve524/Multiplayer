@@ -4,6 +4,7 @@ using System.Linq;
 using Ionic.Zlib;
 using Multiplayer.Client.Saving;
 using Multiplayer.Common;
+using Multiplayer.Common.Networking.Packet;
 using Verse;
 
 namespace Multiplayer.Client;
@@ -121,7 +122,11 @@ public class ClientLoadingState(ConnectionBase connection) : ClientBaseState(con
         int syncInfos = data.ReadInt32();
         var initialOpinions = new List<ClientSyncOpinion>(syncInfos);
         for (int i = 0; i < syncInfos; i++)
-            initialOpinions.Add(ClientSyncOpinion.Deserialize(new ByteReader(data.ReadPrefixedBytes())));
+        {
+            // The server caches the same raw opinions it forwards in Server_SyncInfo.
+            var packet = new ServerSyncInfoPacket { rawSyncOpinion = data.ReadPrefixedBytes() };
+            initialOpinions.Add(ClientSyncOpinion.FromNet(packet.SyncOpinion));
+        }
 
         Log.Message(syncInfos > 0
             ? $"Initial sync opinions: {initialOpinions.First().startTick}...{initialOpinions.Last().startTick}"
