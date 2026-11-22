@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using HarmonyLib;
 using Multiplayer.Common;
 using Multiplayer.Common.Networking.Packet;
@@ -23,10 +24,13 @@ namespace Multiplayer.Client
         public List<int> pawnStatHashes = new();
         public List<int> pawnNeedHashes = new();
 
-        // Serialized only after a desync to reduce bandwidth usage in regular gameplay (only the hashes are used) and
-        // help with debugging in case something goes wrong.
+        // Keep the full traces and per-call hashes for local diagnostics.
         public List<StackTraceLogItem> desyncStackTraces = new();
-        public List<int> desyncStackTraceHashes = new();
+        private List<int> desyncStackTraceHashes = new();
+        private List<int> traceStepHashes = new();
+        private int lastTraceStepTimer;
+        private const int TraceStepHashSeed = 0x6d707472;
+        private const int MaxTracesInReport = 4000;
         public bool simulating;
         public RoundModeEnum roundMode;
 
@@ -52,8 +56,8 @@ namespace Multiplayer.Client
             if (!ListsEqual(commandRandomStates, other.commandRandomStates))
                 return "Random state from commands doesn't match";
 
-            if (!simulating && !other.simulating && desyncStackTraceHashes.Count > 0 && other.desyncStackTraceHashes.Count > 0 &&
-                !ListsEqual(desyncStackTraceHashes, other.desyncStackTraceHashes))
+            if (!simulating && !other.simulating && TraceStepCount > 0 && other.TraceStepCount > 0 &&
+                !ListsEqual(traceStepHashes, other.traceStepHashes))
                 return "Trace hashes don't match";
 
             return null;
@@ -68,6 +72,39 @@ namespace Multiplayer.Client
                 if (!comparer.Equals(lhs[i], rhs[i])) return false;
 
             return true;
+        }
+
+        public void AddTraceHash(int timer, int hash)
+        {
+            desyncStackTraceHashes.Add(hash);
+            if (timer != lastTraceStepTimer || traceStepHashes.Count == 0)
+            {
+                lastTraceStepTimer = timer;
+                traceStepHashes.Add(0);
+                traceStepHashes.Add(Gen.HashCombineInt(TraceStepHashSeed, timer));
+            }
+
+            int last = traceStepHashes.Count - 1;
+            traceStepHashes[last - 1]++;
+            traceStepHashes[last] = Gen.HashCombineInt(traceStepHashes[last], hash);
+        }
+
+        public int TraceStepCount => traceStepHashes.Count / 2;
+        public int TraceStepSize(int step) => traceStepHashes[step * 2];
+        public int TraceStepHash(int step) => traceStepHashes[step * 2 + 1];
+
+        public int TraceCount
+        {
+            get
+            {
+                if (desyncStackTraceHashes.Count > 0)
+                    return desyncStackTraceHashes.Count;
+
+                int total = 0;
+                for (int i = 0; i < TraceStepCount; i++)
+                    total += TraceStepSize(i);
+                return total;
+            }
         }
 
         public List<uint> GetRandomStatesForMap(int mapId)
@@ -99,6 +136,10 @@ namespace Multiplayer.Client
             writer.WriteBool(simulating);
             writer.WriteShort((short)roundMode);
 
+            // Older reports end after the rounding mode and store per-call hashes in the original field.
+            if (TraceStepCount > 0)
+                writer.WritePrefixedInts(traceStepHashes);
+
             return writer.ToArray();
         }
 
@@ -108,7 +149,7 @@ namespace Multiplayer.Client
             worldRandomStates = sync.worldRandomStates,
             mapStates = sync.mapRandomStates.Select(state => new MapRandomStateData(state.mapId)
                 { randomStates = state.randomStates }).ToList(),
-            desyncStackTraceHashes = sync.traceHashes,
+            traceStepHashes = sync.traceStepHashes,
             simulating = sync.simulating,
             roundMode = sync.roundMode
         };
@@ -120,7 +161,7 @@ namespace Multiplayer.Client
             worldRandomStates = worldRandomStates,
             mapRandomStates = mapStates.Select(state => new MapRandomState
                 { mapId = state.mapId, randomStates = state.randomStates }).ToList(),
-            traceHashes = desyncStackTraceHashes,
+            traceStepHashes = traceStepHashes,
             simulating = simulating,
             roundMode = roundMode
         };
@@ -143,7 +184,8 @@ namespace Multiplayer.Client
 
             var traceHashes = new List<int>(data.ReadPrefixedInts());
             var simulating = data.ReadBool();
-            var roundMode = data.ReadShort();
+            var roundMode = data.Left == 0 ? RoundModeEnum.ToNearest : (RoundModeEnum)data.ReadShort();
+            var stepHashes = data.Left == 0 ? new List<int>() : new List<int>(data.ReadPrefixedInts(SyncOpinion.MaxTraceStepHashEntries));
 
             return new ClientSyncOpinion(startTick)
             {
@@ -151,9 +193,23 @@ namespace Multiplayer.Client
                 worldRandomStates = world,
                 mapStates = maps,
                 desyncStackTraceHashes = traceHashes,
+                traceStepHashes = stepHashes,
                 simulating = simulating,
-                roundMode = (RoundModeEnum)roundMode
+                roundMode = roundMode
             };
+        }
+
+        private int StepSizeStartingAt(int traceIndex)
+        {
+            int index = 0;
+            for (int i = 0; i < TraceStepCount && index <= traceIndex; i++)
+            {
+                int size = TraceStepSize(i);
+                if (index == traceIndex)
+                    return size;
+                index += size;
+            }
+            return 0;
         }
 
         public void TryMarkSimulating()
@@ -164,17 +220,25 @@ namespace Multiplayer.Client
 
         public string GetFormattedStackTracesForRange(int diffAt)
         {
-            var start = Math.Max(0, diffAt - Multiplayer.settings.desyncTracesRadius);
-            var end = diffAt + Multiplayer.settings.desyncTracesRadius;
-            var traceId = start;
+            int radius = Multiplayer.settings.desyncTracesRadius;
+            int anchor = Math.Min(Math.Max(0, diffAt), desyncStackTraces.Count);
+            int stepSize = StepSizeStartingAt(diffAt);
+            int start = Math.Max(0, anchor - radius);
+            int end = Math.Min(anchor + stepSize + radius, start + MaxTracesInReport);
+            var details = new StringBuilder().AppendLine($"Trace count: {desyncStackTraces.Count}");
 
-            return
-                $"Trace count: {desyncStackTraces.Count}\nTrace of first desynced map random state:\n{diffAt} {desyncStackTraces.ElementAtOrDefault(diffAt)}" +
-                "\n\nContext traces:\n" +
-                desyncStackTraces
-                .Skip(start)
-                .Take(end - start)
-                .Join(a => traceId++ + " " + a, "\n\n");
+            if (stepSize > 0)
+                details.AppendLine($"First differing timer step: {stepSize} traces starting at {diffAt}.");
+            else if (diffAt >= desyncStackTraces.Count)
+                details.AppendLine($"No trace at index {diffAt}.");
+
+            if (end < anchor + stepSize)
+                details.AppendLine($"Trace output capped at {MaxTracesInReport} entries.");
+
+            var traceId = start;
+            return details.AppendLine("\nContext traces:")
+                .Append(desyncStackTraces.Skip(start).Take(end - start).Join(a => traceId++ + " " + a, "\n\n"))
+                .ToString();
         }
 
         public void Clear()

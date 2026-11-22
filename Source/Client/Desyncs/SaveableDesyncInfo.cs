@@ -79,23 +79,21 @@ public class SaveableDesyncInfo(
     private string GetLocalTraces()
     {
         var traceMessage = "";
-        var localCount = local.desyncStackTraceHashes.Count;
-        var remoteCount = remote.desyncStackTraceHashes.Count;
-        int count = Math.Min(localCount, remoteCount);
+        var localCount = local.TraceCount;
+        var remoteCount = remote.TraceCount;
 
         if (diffAt == -1)
         {
-            if (count == 0)
+            if (localCount == 0 || remoteCount == 0)
             {
                 return $"No traces (remote: {remoteCount}, local: {localCount})";
             }
 
-            traceMessage = "Note: trace hashes are equal between local and remote\n\n";
+            traceMessage = "Note: trace summaries are equal between local and remote.\n\n";
         }
         else if (!diffAtFound)
         {
-            traceMessage = "Note: traces differ in amount, but the existing ones are equal. This means that a tick" +
-                           " has ended sooner on one of the connection sides\n\n";
+            traceMessage = "Note: the common timer steps match. One side recorded additional steps.\n\n";
         }
 
         traceMessage += local.GetFormattedStackTracesForRange(diffAt);

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
+using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Patches;
 using Multiplayer.Common;
 using RimWorld;
@@ -54,7 +55,18 @@ namespace Multiplayer.Client.Desyncs
 
             if (!Multiplayer.Ticking && !Multiplayer.ExecutingCmds) return false;
 
-            return ignoreTraces == 0;
+            if (ignoreTraces != 0) return false;
+
+            // Use the synchronized simulation context so all peers collect the same timer steps.
+            return Multiplayer.GameComp.logDesyncTracesAtHyperspeed || !ContextAtHyperspeed();
+        }
+
+        private static bool ContextAtHyperspeed()
+        {
+            if (Multiplayer.MapContext is { } map)
+                return map.AsyncTime()?.DesiredTimeSpeed == MpTimeSpeed.Hyperspeed;
+
+            return Multiplayer.AsyncWorldTime?.ContextAtHyperspeed == true;
         }
     }
 

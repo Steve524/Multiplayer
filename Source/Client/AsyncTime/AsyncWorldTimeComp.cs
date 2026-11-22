@@ -20,6 +20,7 @@ namespace Multiplayer.Client.AsyncTime;
 public class AsyncWorldTimeComp : IExposable, ITickable
 {
     public static bool tickingWorld;
+    internal bool ContextAtHyperspeed { get; private set; }
     private TimeSpeed timeSpeedInt;
 
     public float TimeToTickThrough { get; set; }
@@ -156,7 +157,9 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
     public void PreContext()
     {
-        MpTimeSpeed.SetOn(Find.TickManager, DesiredTimeSpeed);
+        var speed = DesiredTimeSpeed;
+        MpTimeSpeed.SetOn(Find.TickManager, speed);
+        ContextAtHyperspeed = speed == MpTimeSpeed.Hyperspeed;
         SimulationCaches.InvalidateFrameKeyed();
         Rand.PushState();
         Rand.StateCompressed = randState;
@@ -180,6 +183,7 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
         randState = Rand.StateCompressed;
         Rand.PopState();
+        ContextAtHyperspeed = false;
     }
 
     public void ExecuteCmd(ScheduledCommand cmd)

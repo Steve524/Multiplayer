@@ -14,11 +14,13 @@ public class BootstrapSettingsTest
             lanAddress = "192.168.1.15",
             direct = true,
             lan = true,
+            desyncTracesAtHyperspeed = true,
         };
 
         var toml = TomlSettings.Serialize(settings);
 
         Assert.That(toml, Does.Contain("gameName = \"Bootstrap Test\""));
         Assert.That(toml, Does.Contain("lanAddress = \"192.168.1.15\""));
+        Assert.That(toml, Does.Contain("desyncTracesAtHyperspeed = true"));
     }
 }
