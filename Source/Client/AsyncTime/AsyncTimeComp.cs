@@ -138,19 +138,21 @@ namespace Multiplayer.Client
             tickingMap = map;
             PreContext();
 
+            var overlappingFinder = ConcurrentPathfinding.Active ? map.pathFinder : null;
+
             //SimpleProfiler.Start();
 
             try
             {
-                map.MapPreTick();
+                if (overlappingFinder != null)
+                    ConcurrentPathfinding.MapPreTick(map, overlappingFinder);
+                else
+                    map.MapPreTick();
                 mapTicks++;
                 Find.TickManager.ticksGameInt = mapTicks;
 
-                //Either This line or PathFinderPatch can be commented out
-                //ForeCompeleScheduledJobs here can prevent all Multithread Races,
-                //but also force pathfinder to be done before tick runing
-                //PathFinderPatch is the other way try to snapshot everything worker threads are using
-                map.pathFinder.ForceCompleteScheduledJobs();
+                if (overlappingFinder == null)
+                    map.pathFinder.ForceCompleteScheduledJobs();
 
                 tickListNormal.Tick();
                 tickListRare.Tick();
@@ -171,9 +173,17 @@ namespace Multiplayer.Client
             }
             finally
             {
-                PostContext();
-                Multiplayer.game.sync.TryAddMapRandomState(map.uniqueID, randState);
-                eventCount++;
+                try
+                {
+                    // Workers may overlap this map tick. Commands and other maps run after it has drained.
+                    ConcurrentPathfinding.Complete(overlappingFinder);
+                }
+                finally
+                {
+                    PostContext();
+                    Multiplayer.game.sync.TryAddMapRandomState(map.uniqueID, randState);
+                    eventCount++;
+                }
 
                 //SimpleProfiler.Pause();
             }
