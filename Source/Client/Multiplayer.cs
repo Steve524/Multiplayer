@@ -206,6 +206,7 @@ namespace Multiplayer.Client
         public static void StopMultiplayer()
         {
             Log.Message($"Stopping multiplayer session from {new StackTrace().GetFrame(1).GetMethod().FullDescription()}");
+            MpDiagLog.Close();
 
             OnMainThread.ClearScheduled();
             LongEventHandler.ClearQueuedEvents();
