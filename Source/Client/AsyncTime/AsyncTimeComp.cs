@@ -205,6 +205,7 @@ namespace Multiplayer.Client
                 force: true);
 
             prevTime = TimeSnapshot.GetAndSetFromMap(map);
+            SimulationCaches.InvalidateFrameKeyed();
 
             Rand.PushState();
             Rand.StateCompressed = randState;

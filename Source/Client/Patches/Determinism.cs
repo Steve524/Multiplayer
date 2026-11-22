@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Util;
 using RimWorld.QuestGen;
@@ -442,66 +443,81 @@ namespace Multiplayer.Client.Patches
     [HarmonyPatch(typeof(StatWorker), nameof(StatWorker.GetValue), typeof(Thing), typeof(bool), typeof(int))]
     static class StatWorkerGetValuePatch
     {
-        private static readonly PawnCapacitiesHandler.CacheStatus CachedInInterface = (PawnCapacitiesHandler.CacheStatus)3;
+        private static readonly FieldInfo TemporaryStatCacheField =
+            AccessTools.Field(typeof(StatWorker), nameof(StatWorker.temporaryStatCache));
 
-        private static FieldInfo statusField = AccessTools.Field(typeof(PawnCapacitiesHandler.CacheElement),
-            nameof(PawnCapacitiesHandler.CacheElement.status));
+        // Replacing or deleting a worker's cache should also discard its interface cache.
+        private static ConditionalWeakTable<Dictionary<Thing, StatCacheEntry>, Dictionary<Thing, StatCacheEntry>> interfaceCaches = new();
 
-        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> insts)
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
         {
-            var matcher = new CodeMatcher(insts);
+            var cacheFor = AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(CacheFor));
+            var gameTickField = AccessTools.Field(typeof(StatCacheEntry), nameof(StatCacheEntry.gameTick));
+            var absolute = AccessTools.Method(typeof(Math), nameof(Math.Abs), new[] { typeof(int) });
+            var lastLoadedGameTick = false;
+            var cacheLoads = 0;
+            var freshnessChecks = 0;
 
-            // Modify cache update checking
-            matcher.MatchEndForward(
-                new CodeMatch(OpCodes.Callvirt, typeof(Dictionary<Thing, StatCacheEntry>).GetMethod("TryGetValue"))
-            ).Advance(1).Insert(
-                new CodeInstruction(OpCodes.Ldarg_0),
-                new CodeInstruction(OpCodes.Ldarg_1),
-                new CodeInstruction(OpCodes.Call,
-                    AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(HasValueInCache)))
-            );
+            foreach (var instruction in instructions)
+            {
+                if (instruction.LoadsField(TemporaryStatCacheField))
+                {
+                    instruction.opcode = OpCodes.Call;
+                    instruction.operand = cacheFor;
+                    cacheLoads++;
+                }
 
-            matcher.MatchEndForward(
-                new CodeMatch(OpCodes.Ldfld, typeof(StatCacheEntry).GetField(nameof(StatCacheEntry.gameTick)))
-            ).Advance(1).Insert(
-                new CodeInstruction(OpCodes.Call,
-                    AccessTools.Method(typeof(Math), nameof(Math.Abs), new[] { typeof(int) }))
-            );
+                yield return instruction;
 
-            // Modify status setter
-            matcher.MatchEndForward(
-                new CodeMatch(OpCodes.Newobj)
-            ).Advance(1).Insert(
-                new CodeInstruction(OpCodes.Call,
-                    AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(NewCacheTicksCtor)))
-            );
+                // Async maps can read an entry stamped on a clock that is ahead of their own.
+                if (lastLoadedGameTick && instruction.opcode == OpCodes.Sub)
+                {
+                    yield return new CodeInstruction(OpCodes.Call, absolute);
+                    freshnessChecks++;
+                }
 
-            // Modify status setter
-            matcher.MatchEndForward(
-                    new CodeMatch(OpCodes.Stfld, typeof(StatCacheEntry).GetField(nameof(StatCacheEntry.gameTick)))
-            ).Insert(
-                new CodeInstruction(OpCodes.Call,
-                    AccessTools.Method(typeof(StatWorkerGetValuePatch), nameof(NewCacheTicks)))
-            );
+                lastLoadedGameTick = instruction.LoadsField(gameTickField);
+            }
 
-            return matcher.Instructions();
+            if (cacheLoads == 0 || freshnessChecks != 1)
+                Log.Error($"MP: unexpected stat cache instructions in {original} ({cacheLoads} cache loads, {freshnessChecks} freshness checks)");
         }
 
-        private static bool HasValueInCache(bool hasValueInCache, StatWorker worker, Thing t)
+        private static Dictionary<Thing, StatCacheEntry> CacheFor(StatWorker worker)
         {
-            var simulating = !Multiplayer.InInterface;
-            return hasValueInCache && !(simulating && worker.temporaryStatCache[t].gameTick < 0);
+            var cache = worker.temporaryStatCache;
+            if (cache == null || Multiplayer.Client == null || Multiplayer.Ticking || Multiplayer.ExecutingCmds)
+                return cache;
+
+            // Loading and other long events must not prime a cache that simulation will later read.
+            return Multiplayer.InInterface ? interfaceCaches.GetOrCreateValue(cache) : null;
         }
 
-        private static StatCacheEntry NewCacheTicksCtor(StatCacheEntry entry)
+        internal static void ClearAll()
         {
-            entry.gameTick = NewCacheTicks(entry.gameTick);
-            return entry;
+            interfaceCaches = new();
+            foreach (var stat in DefDatabase<StatDef>.AllDefsListForReading)
+                stat.workerInt?.temporaryStatCache?.Clear();
         }
 
-        private static int NewCacheTicks(int gameTick)
+        [HarmonyPatch(typeof(StatWorker), nameof(StatWorker.TryClearCache))]
+        static class ClearInterfaceCache
         {
-            return Multiplayer.InInterface ? -gameTick : gameTick;
+            static void Postfix(StatWorker __instance)
+            {
+                if (__instance.temporaryStatCache is { } cache)
+                    interfaceCaches.Remove(cache);
+            }
+        }
+
+        [HarmonyPatch(typeof(StatWorker), nameof(StatWorker.ClearCacheForThing))]
+        static class ClearInterfaceCacheForThing
+        {
+            static void Postfix(StatWorker __instance, Thing thing)
+            {
+                if (__instance.temporaryStatCache is { } cache && interfaceCaches.TryGetValue(cache, out var uiCache))
+                    uiCache.Remove(thing);
+            }
         }
     }
 
