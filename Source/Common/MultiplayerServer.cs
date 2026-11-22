@@ -71,6 +71,12 @@ namespace Multiplayer.Common
         public float serverTimePerTick = StandardTimePerTick;
         public int sentCmdsSnapshot;
 
+        private const int AutoSpeedLagThreshold = 60;
+        private const double AutoSpeedSustainMs = 1500;
+        private const double AutoSpeedCooldownMs = 5000;
+        private double autoSpeedBehindMs;
+        private double autoSpeedCooldownRemainingMs;
+
         public int NetTimer { get; private set; }
 
         public bool IsStandaloneServer { get; set; }
@@ -147,6 +153,8 @@ namespace Multiplayer.Common
                     if (realTime > 0)
                         realTime = 0f;
 
+                    AutoReduceSpeedIfBehind(elapsed);
+
                     if (MpVersion.IsDebug && tickTime.ElapsedMillisDouble() > 15f)
                         ServerLog.Log($"Server tick took {tickTime.ElapsedMillisDouble()}ms");
 
@@ -170,6 +178,33 @@ namespace Multiplayer.Common
             {
                 ServerLog.Log($"Exception stopping the server: {e}");
             }
+        }
+
+        internal void AutoReduceSpeedIfBehind(double elapsedMs)
+        {
+            autoSpeedCooldownRemainingMs -= elapsedMs;
+
+            var speed = commands.LastGlobalTimeSpeed;
+            // Global speed commands are contiguous through Hyperspeed, whose vote byte is separate.
+            if (speed <= (byte)TimeVote.Normal || speed > (byte)TimeVote.Ultrafast + 1 ||
+                settings.timeControl == TimeControl.LowestWins || freezeManager.Frozen ||
+                !PlayingIngamePlayers.Any(p => p.ExtrapolatedTicksBehind > AutoSpeedLagThreshold))
+            {
+                autoSpeedBehindMs = 0;
+                return;
+            }
+
+            autoSpeedBehindMs += elapsedMs;
+            if (autoSpeedBehindMs < AutoSpeedSustainMs || autoSpeedCooldownRemainingMs > 0)
+                return;
+
+            var lowerSpeed = (byte)(speed - 1);
+            commands.Send(CommandType.GlobalTimeSpeed, ScheduledCommand.NoFaction, ScheduledCommand.Global, [lowerSpeed]);
+            autoSpeedBehindMs = 0;
+            autoSpeedCooldownRemainingMs = AutoSpeedCooldownMs;
+
+            var behind = PlayingIngamePlayers.Where(p => p.ExtrapolatedTicksBehind > AutoSpeedLagThreshold);
+            ServerLog.Log($"Auto-lowered global speed to {(TimeVote)lowerSpeed}: {string.Join(", ", behind.Select(p => p.Username))}");
         }
 
         private void TickNet()

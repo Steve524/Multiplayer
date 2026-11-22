@@ -293,6 +293,11 @@ public class AsyncWorldTimeComp : IExposable, ITickable
     private void HandleTimeSpeed(ScheduledCommand cmd, ByteReader data)
     {
         TimeSpeed speed = (TimeSpeed)data.ReadByte();
+
+        // A server-generated slowdown can arrive after a pause that happened in the simulation.
+        if (cmd.playerId == ScheduledCommand.NoPlayer && speed >= timeSpeedInt)
+            return;
+
         DesiredTimeSpeed = speed;
 
         if (!Multiplayer.GameComp.asyncTime)

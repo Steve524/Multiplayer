@@ -9,6 +9,7 @@ namespace Multiplayer.Common
         private MultiplayerServer server;
 
         public int SentCmds { get; private set; }
+        internal byte LastGlobalTimeSpeed { get; private set; } = (byte)TimeVote.Normal;
 
         public CommandHandler(MultiplayerServer server)
         {
@@ -65,6 +66,14 @@ namespace Multiplayer.Common
             }
 
             SentCmds++;
+
+            if (mapId == ScheduledCommand.Global)
+            {
+                if (cmdType == CommandType.PauseAll)
+                    LastGlobalTimeSpeed = (byte)TimeVote.Paused;
+                else if (cmdType == CommandType.GlobalTimeSpeed && data.Length > 0)
+                    LastGlobalTimeSpeed = data[0];
+            }
         }
 
         public void PauseAll()
