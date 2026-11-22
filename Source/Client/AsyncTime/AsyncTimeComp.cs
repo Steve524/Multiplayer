@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
+using Multiplayer.Client.AsyncTime;
 using Multiplayer.Client.Comp;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
@@ -82,6 +83,7 @@ namespace Multiplayer.Client
         public Map map;
         public int mapTicks;
         internal int mapLoadDiagnosticTicksRemaining;
+        internal int pendingVisualTicks;
         private int gameStartAbsTickMap;
         private TimeSpeed timeSpeedInt;
         public bool forcedNormalSpeed;
@@ -162,9 +164,7 @@ namespace Multiplayer.Client
                 QuestManagerTickAsyncTime();
 
                 map.MapPostTick();
-                Find.TickManager.ticksThisFrame = 1;
-                map.postTickVisuals.ProcessPostTickVisuals();
-                Find.TickManager.ticksThisFrame = 0;
+                PostTickVisualsPerFrame.TickSimulationVisuals(this);
 
                 UpdateManagers();
                 CacheNothingHappening();
