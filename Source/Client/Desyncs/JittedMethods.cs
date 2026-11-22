@@ -19,6 +19,13 @@ public class JittedMethod
     public int timer;
     public bool inInterface;
 
+    internal JittedMethod Snapshot()
+    {
+        var snapshot = (JittedMethod)MemberwiseClone();
+        snapshot.mapTicks = (int[])mapTicks?.Clone();
+        return snapshot;
+    }
+
     public string TimeString()
     {
         return $"m:{mapTicks?.Join(delimiter: ",") ?? "[]"} w:{worldTicks} t:{timer}";
@@ -32,9 +39,9 @@ public class JittedMethod
 
 public static class JittedMethods
 {
-    private static Queue<JittedMethod> methodQueue = new();
+    private static readonly Queue<JittedMethod> methodQueue = new();
     private static IntPtr profiler;
-    private static bool adding;
+    [ThreadStatic] private static bool adding;
 
     public static void Init()
     {
@@ -49,19 +56,36 @@ public static class JittedMethods
 
                 if (UnityData.IsInMainThread && Multiplayer.settings != null && Native.mono_method_get_token(method) != 0)
                 {
-                    var methodBase = Native.GetMethodBaseFromRuntimePointer(method);
-                    methodQueue.Enqueue(new JittedMethod
+                    var limit = Math.Max(0, Multiplayer.settings.jittedMethodsInDesync);
+                    lock (methodQueue)
                     {
-                        method = methodBase,
-                        from = new StackTrace().GetFrame(1)?.GetMethod(),
-                        mapTicks = Multiplayer.game?.asyncTimeComps.Select(c => c.mapTicks).ToArray(),
-                        worldTicks = Multiplayer.game?.asyncWorldTimeComp?.worldTicks ?? -1,
-                        timer = TickPatch.Timer,
-                        inInterface = Multiplayer.InInterface
-                    });
+                        while (methodQueue.Count > limit)
+                            methodQueue.Dequeue();
+                        if (limit == 0) return;
 
-                    if (methodQueue.Count > Multiplayer.settings.jittedMethodsInDesync)
-                        methodQueue.Dequeue();
+                        var methodBase = Native.GetMethodBaseFromRuntimePointer(method);
+                        var caller = new StackFrame(1, false).GetMethod();
+                        var entry = methodQueue.Count == limit ? methodQueue.Dequeue() : new JittedMethod();
+                        var game = Multiplayer.game;
+                        var maps = game?.asyncTimeComps;
+
+                        if (maps == null)
+                            entry.mapTicks = null;
+                        else
+                        {
+                            if (entry.mapTicks?.Length != maps.Count)
+                                entry.mapTicks = maps.Count == 0 ? Array.Empty<int>() : new int[maps.Count];
+                            for (int i = 0; i < maps.Count; i++)
+                                entry.mapTicks[i] = maps[i].mapTicks;
+                        }
+
+                        entry.method = methodBase;
+                        entry.from = caller;
+                        entry.worldTicks = game?.asyncWorldTimeComp?.worldTicks ?? -1;
+                        entry.timer = TickPatch.Timer;
+                        entry.inInterface = Multiplayer.InInterface;
+                        methodQueue.Enqueue(entry);
+                    }
                 }
             }
             finally
@@ -78,8 +102,7 @@ public static class JittedMethods
 
     public static string GetJittedMethodsString()
     {
-        // Two ToArrays to prevent a compilation in between from causing a "Collection was modified" exception
-        var jittedMethods = methodQueue.ToArray().Select((j, i) => (j, i)).ToArray();
+        var jittedMethods = CaptureSnapshot().Select((j, i) => (j, i)).ToArray();
 
         var builder = new StringBuilder();
         builder.Append("In simulation:"); // This will get a newline from the != comparison below
@@ -108,5 +131,21 @@ public static class JittedMethods
         }
 
         return builder.ToString();
+    }
+
+    private static JittedMethod[] CaptureSnapshot()
+    {
+        // A JIT callback can run while building a report, and the queue reuses its entries.
+        var wasAdding = adding;
+        adding = true;
+        try
+        {
+            lock (methodQueue)
+                return methodQueue.Select(entry => entry.Snapshot()).ToArray();
+        }
+        finally
+        {
+            adding = wasAdding;
+        }
     }
 }
