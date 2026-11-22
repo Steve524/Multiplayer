@@ -141,13 +141,14 @@ public class PacketTest
                 new MapRandomState { mapId = 1, randomStates = [111, 222] },
                 new MapRandomState { mapId = 2, randomStates = [333, 444, 555] }
             ],
-            traceHashes = [999, 888, 777],
+            traceStepHashes = [999, 888, 777, -666],
             simulating = true,
             roundMode = RoundModeEnum.ToNearest
         };
 
         yield return new ClientSyncInfoPacket { SyncOpinion = sampleOpinion };
         yield return new ServerSyncInfoPacket { SyncOpinion = sampleOpinion };
+        yield return new ClientBootstrapSettingsPacket(new ServerSettings { desyncTracesAtHyperspeed = true });
 
         yield return new ClientSetFactionPacket(123, 123);
         yield return new ServerSetFactionPacket(123, 123);
@@ -252,6 +253,25 @@ public class PacketTest
         var deserialized = binder.Deserialize(serialize);
 
         deserialized.Should().BeEquivalentTo(original, opts => opts.PreferringRuntimeMemberTypes());
+    }
+
+    [TestCase(new[] { 1 })]
+    [TestCase(new[] { 0, 42 })]
+    [TestCase(new[] { int.MaxValue, 42, 1, 43 })]
+    public void RejectsInvalidTraceStepSummaries(int[] entries)
+    {
+        var packet = new ClientSyncInfoPacket
+        {
+            SyncOpinion = new SyncOpinion
+            {
+                commandRandomStates = [],
+                worldRandomStates = [],
+                mapRandomStates = [],
+                traceStepHashes = [..entries]
+            }
+        };
+
+        Assert.Throws<ReaderException>(() => _ = packet.SyncOpinion);
     }
 
     [TestCase(TimeVote.PlayerResetTickable, 5)]

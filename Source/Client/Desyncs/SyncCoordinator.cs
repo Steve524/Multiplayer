@@ -125,7 +125,7 @@ namespace Multiplayer.Client
             var local = oldOpinion.isLocalClientsOpinion ? oldOpinion : newOpinion;
             var remote = !oldOpinion.isLocalClientsOpinion ? oldOpinion : newOpinion;
 
-            var diffAt = FindTraceHashesDiffTick(local, remote, out var found);
+            var diffAt = FindTraceDifference(local, remote, out var found);
             Multiplayer.Client.Send(new ClientDesyncedPacket(local.startTick, diffAt));
 
             MpUI.ClearWindowStack();
@@ -135,22 +135,24 @@ namespace Multiplayer.Client
             ));
         }
 
-        private static int FindTraceHashesDiffTick(ClientSyncOpinion local, ClientSyncOpinion remote, out bool found)
+        private static int FindTraceDifference(ClientSyncOpinion local, ClientSyncOpinion remote, out bool found)
         {
-            found = true;
-            //Find the length of whichever stack trace is shorter.
-            var localCount = local.desyncStackTraceHashes.Count;
-            var remoteCount = remote.desyncStackTraceHashes.Count;
-            int count = Math.Min(localCount, remoteCount);
-
-            //Find the point at which the hashes differ - this is where the desync occurred.
-            for (int i = 0; i < count; i++)
-                if (local.desyncStackTraceHashes[i] != remote.desyncStackTraceHashes[i])
-                    return i;
+            int steps = Math.Min(local.TraceStepCount, remote.TraceStepCount);
+            int traceIndex = 0;
+            for (int i = 0; i < steps; i++)
+            {
+                int size = local.TraceStepSize(i);
+                if (size != remote.TraceStepSize(i) || local.TraceStepHash(i) != remote.TraceStepHash(i))
+                {
+                    found = true;
+                    return traceIndex;
+                }
+                traceIndex += size;
+            }
 
             found = false;
-            if (localCount != remoteCount)
-                return count - 1;
+            if (steps > 0 && local.TraceStepCount != remote.TraceStepCount)
+                return traceIndex;
 
             return -1;
         }
@@ -209,7 +211,7 @@ namespace Multiplayer.Client
                 info2 = info2,
             });
 
-            OpinionInBuilding.desyncStackTraceHashes.Add(hash);
+            OpinionInBuilding.AddTraceHash(TickPatch.Timer, hash);
         }
 
         public void TryAddStackTraceForDesyncLogRaw(StackTraceLogItemRaw item, int depth, int hashIn, string moreInfo = null)
@@ -237,8 +239,7 @@ namespace Multiplayer.Client
 
             OpinionInBuilding.desyncStackTraces.Add(item);
 
-            // Track & network trace hash, for comparison with other opinions.
-            OpinionInBuilding.desyncStackTraceHashes.Add(hash);
+            OpinionInBuilding.AddTraceHash(TickPatch.Timer, hash);
         }
 
         public static string MethodNameWithIL(string rawName)
