@@ -228,12 +228,12 @@ namespace Multiplayer.Client
 
         public static TimeSnapshot? GetAndSetFromMap(Map map)
         {
-            if (map == null) return null;
+            var mapComp = map?.AsyncTime();
+            if (mapComp == null) return null;
 
             TimeSnapshot prev = Current();
 
             var tickManager = Find.TickManager;
-            var mapComp = map.AsyncTime();
 
             tickManager.ticksGameInt = mapComp.mapTicks;
             tickManager.slower = mapComp.slower;

@@ -134,7 +134,9 @@ namespace Multiplayer.Client.AsyncTime
             if (WorldRendererUtility.WorldSelected) return;
 
             var map = PreDrawCalcMarker.calculating.Map ?? Find.CurrentMap;
-            var asyncTime = map.AsyncTime();
+            // Rendering can run before map setup has registered its time component.
+            var asyncTime = map?.AsyncTime();
+            if (asyncTime == null) return;
             var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.DesiredTimeSpeed;
 
             __result = TickPatch.Simulating ? 6 : asyncTime.ActualRateMultiplier(timeSpeed);
@@ -150,7 +152,8 @@ namespace Multiplayer.Client.AsyncTime
             if (WorldRendererUtility.WorldSelected) return;
             if (FactionCreator.generatingMap) return;
 
-            var asyncTime = Find.CurrentMap.AsyncTime();
+            var asyncTime = Find.CurrentMap?.AsyncTime();
+            if (asyncTime == null) return;
             var timeSpeed = Multiplayer.IsReplay ? TickPatch.replayTimeSpeed : asyncTime.DesiredTimeSpeed;
 
             __result = asyncTime.ActualRateMultiplier(timeSpeed) == 0;
@@ -166,8 +169,21 @@ namespace Multiplayer.Client.AsyncTime
         {
             if (Multiplayer.Client == null) return;
 
-            // The newly generated map
-            Find.Maps.LastOrDefault()?.AsyncTime().slower.SignalForceNormalSpeedShort();
+            var newMapTime = Find.Maps.LastOrDefault()?.AsyncTime();
+            if (newMapTime == null) return;
+
+            // TimeSlower calculates its deadline from TicksGame. Use the new map's clock on every peer.
+            var tickManager = Find.TickManager;
+            int previousTicks = tickManager.ticksGameInt;
+            tickManager.ticksGameInt = newMapTime.mapTicks;
+            try
+            {
+                newMapTime.slower.SignalForceNormalSpeedShort();
+            }
+            finally
+            {
+                tickManager.ticksGameInt = previousTicks;
+            }
         }
     }
 

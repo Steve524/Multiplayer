@@ -112,6 +112,25 @@ namespace Multiplayer.Client
 
         public void Tick()
         {
+            var game = Current.Game;
+            var viewedMap = game.CurrentMap;
+
+            // Simulation reads of Find.CurrentMap must agree across peers with different views.
+            game.currentMapIndex = (sbyte)map.Index;
+            try
+            {
+                TickMap();
+            }
+            finally
+            {
+                // Map removal can shift indices during the tick. IndexOf also handles a removed map.
+                game.currentMapIndex = (sbyte)(viewedMap == null ? -1 : game.Maps.IndexOf(viewedMap));
+                tickingMap = null;
+            }
+        }
+
+        private void TickMap()
+        {
             tickingMap = map;
             PreContext();
 
@@ -153,7 +172,6 @@ namespace Multiplayer.Client
                 PostContext();
                 Multiplayer.game.sync.TryAddMapRandomState(map.uniqueID, randState);
                 eventCount++;
-                tickingMap = null;
 
                 //SimpleProfiler.Pause();
             }
