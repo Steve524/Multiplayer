@@ -9,7 +9,7 @@ namespace Multiplayer.Common
         public const int GravshipCutsceneProtocol = 60;
         public const int ArchonexusProtocol = 61;
         public const int ViewedMapTickRateProtocol = 63;
-        public const int Protocol = ViewedMapTickRateProtocol;
+        public const int Protocol = 64;
 
         public static readonly string? GitHash = Assembly.GetExecutingAssembly()
             .GetCustomAttributes<AssemblyMetadataAttribute>()

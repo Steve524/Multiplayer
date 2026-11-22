@@ -15,6 +15,7 @@ namespace Multiplayer.Client.Comp
         public bool debugMode;
         public bool logDesyncTraces;
         public bool logDesyncTracesAtHyperspeed;
+        public bool concurrentPathfinding;
         public PauseOnLetter pauseOnLetter;
         public TimeControl timeControl;
         public Dictionary<int, PlayerData> playerData = new(); // player id to player data
@@ -33,6 +34,7 @@ namespace Multiplayer.Client.Comp
             Scribe_Values.Look(ref debugMode, "debugMode");
             Scribe_Values.Look(ref logDesyncTraces, "logDesyncTraces");
             Scribe_Values.Look(ref logDesyncTracesAtHyperspeed, "logDesyncTracesAtHyperspeed");
+            Scribe_Values.Look(ref concurrentPathfinding, "concurrentPathfinding");
             Scribe_Values.Look(ref pauseOnLetter, "pauseOnLetter");
             Scribe_Values.Look(ref timeControl, "timeControl");
             Scribe_Values.Look(ref nextSessionId, "nextSessionId");

@@ -11,6 +11,7 @@ using System.Text;
 using HarmonyLib;
 using LudeonTK;
 using Multiplayer.Client.Desyncs;
+using Multiplayer.Client.Patches;
 using Multiplayer.Client.Util;
 using Multiplayer.Client.Windows;
 using RimWorld;
@@ -204,6 +205,21 @@ namespace Multiplayer.Client
             // RegenerateEverythingNow();
             Find.CurrentMap.mapDrawer.WholeMapChanged(~(ulong)MapMeshFlagDefOf.None);
             Log.Message(timing.ToStringFullContents());
+        }
+
+        [DebugAction(MultiplayerCategory, "Toggle concurrent pathfinding", allowedGameStates = AllowedGameStates.Playing)]
+        public static void ToggleConcurrentPathfinding()
+        {
+            if (!Multiplayer.ExecutingCmds || Multiplayer.game?.gameComp is not { } comp) return;
+
+            foreach (var map in Find.Maps)
+                ConcurrentPathfinding.Complete(map.pathFinder);
+
+            comp.concurrentPathfinding = !comp.concurrentPathfinding;
+            if (comp.concurrentPathfinding && !ConcurrentPathfinding.Available)
+                Log.Warning("MP: concurrent pathfinding is unavailable because a required patch did not apply.");
+            else
+                Log.Message($"MP: concurrent pathfinding {(comp.concurrentPathfinding ? "enabled" : "disabled")}");
         }
 
         [DebugAction(MultiplayerCategory, "Save Game", allowedGameStates = AllowedGameStates.Playing)]
