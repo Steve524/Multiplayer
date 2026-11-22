@@ -78,19 +78,25 @@ namespace Multiplayer.Client.AsyncTime
     {
         static bool Prefix(Thing t)
         {
-            if (Multiplayer.Client == null || t.Map == null) return true;
+            if (Multiplayer.Client == null || t.Map is not { } map) return true;
 
-            AsyncTimeComp comp = t.Map.AsyncTime();
-            TickerType tickerType = t.def.tickerType;
-
-            if (t is IThingHolder || tickerType == TickerType.Normal)
-                comp.tickListNormal.RegisterThing(t);
-            else if (tickerType == TickerType.Rare)
-                comp.tickListRare.RegisterThing(t);
-            else if (tickerType == TickerType.Long)
-                comp.tickListLong.RegisterThing(t);
-
+            ListFor(map.AsyncTime(), t)?.RegisterThing(t);
             return false;
+        }
+
+        internal static TickList ListFor(AsyncTimeComp comp, Thing t)
+        {
+            // Vanilla ticks every holder on the normal list regardless of its def's ticker type.
+            if (t is IThingHolder)
+                return comp.tickListNormal;
+
+            return t.def.tickerType switch
+            {
+                TickerType.Normal => comp.tickListNormal,
+                TickerType.Rare => comp.tickListRare,
+                TickerType.Long => comp.tickListLong,
+                _ => null
+            };
         }
     }
 
@@ -99,18 +105,9 @@ namespace Multiplayer.Client.AsyncTime
     {
         static bool Prefix(Thing t)
         {
-            if (Multiplayer.Client == null || t.Map == null) return true;
+            if (Multiplayer.Client == null || t.Map is not { } map) return true;
 
-            AsyncTimeComp comp = t.Map.AsyncTime();
-            TickerType tickerType = t.def.tickerType;
-
-            if (tickerType == TickerType.Normal)
-                comp.tickListNormal.DeregisterThing(t);
-            else if (tickerType == TickerType.Rare)
-                comp.tickListRare.DeregisterThing(t);
-            else if (tickerType == TickerType.Long)
-                comp.tickListLong.DeregisterThing(t);
-
+            TickListAdd.ListFor(map.AsyncTime(), t)?.DeregisterThing(t);
             return false;
         }
     }
