@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Linq;
 using System.Reflection;
 using Multiplayer.API;
+using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Util;
 using Verse;
 
@@ -14,7 +16,10 @@ public static class ApiSerialization
     public static void Init()
     {
         syncSimples = TypeCache.AllInterfaceImplementationsOrdered(typeof(ISyncSimple));
-        sessions = TypeCache.AllSubclassesNonAbstractOrdered(typeof(Session));
+        // Session indices are stored in replays. Append the new type to keep existing indices stable.
+        var archonexus = typeof(ArchonexusNewColonySession);
+        sessions = TypeCache.AllSubclassesNonAbstractOrdered(typeof(Session))
+            .Where(type => type != archonexus).Append(archonexus).ToArray();
 
         foreach (var sessionType in sessions)
         {

@@ -6,6 +6,7 @@ using Multiplayer.Client.Comp;
 using Multiplayer.Client.Desyncs;
 using Multiplayer.Client.Factions;
 using Multiplayer.Client.Patches;
+using Multiplayer.Client.Persistent;
 using Multiplayer.Client.Saving;
 using Multiplayer.Client.Util;
 using Multiplayer.Common;
@@ -223,6 +224,9 @@ public class AsyncWorldTimeComp : IExposable, ITickable
 
             if (cmdType == CommandType.GravshipCutsceneEnded)
                 GravshipCutsceneSync.Finish(data.ReadInt32(), data.ReadInt32(), data.ReadBool());
+
+            if (cmdType is CommandType.ArchonexusChooseThings or CommandType.ArchonexusChooseTile or CommandType.ArchonexusCancel)
+                ArchonexusNewColony.HandleCommand(cmdType, data);
 
             if (cmdType == CommandType.InitPlayerData)
             {

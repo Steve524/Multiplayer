@@ -20,4 +20,7 @@ public enum CommandType : byte
 
     // Global scope. Append new values so recorded commands keep their IDs.
     GravshipCutsceneEnded,
+    ArchonexusChooseThings,
+    ArchonexusChooseTile,
+    ArchonexusCancel,
 }
