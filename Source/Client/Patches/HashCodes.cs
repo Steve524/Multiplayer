@@ -94,6 +94,45 @@ namespace Multiplayer.Client.Patches
         }
     }
 
+#if RW17
+    // Patch game callers rather than System.HashCode: ValueTuple and Dictionary
+    // also use Combine, and changing it when a session starts invalidates their keys.
+    [HarmonyPatch]
+    static class DeterministicGameHashCalls
+    {
+        static IEnumerable<MethodBase> TargetMethods()
+        {
+            yield return AccessTools.PropertyGetter(typeof(Map), nameof(Map.NextGenSeed));
+            yield return AccessTools.PropertyGetter(typeof(Gravship), nameof(Gravship.ConstantRandSeed));
+            yield return AccessTools.Method(typeof(LayoutWorker), "FillAllRooms");
+            yield return AccessTools.Method(typeof(Building_Trap), nameof(Building_Trap.KnowsOfTrap));
+        }
+
+        static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions, MethodBase original)
+        {
+            var replaced = false;
+            foreach (var instruction in instructions)
+            {
+                if (instruction.operand is MethodInfo method && method.DeclaringType == typeof(HashCode))
+                {
+                    var parameters = method.GetParameters();
+                    if (instruction.opcode != OpCodes.Call || method.Name != nameof(HashCode.Combine)
+                        || parameters.Length is < 2 or > 8 || parameters.Any(p => p.ParameterType != typeof(int)))
+                        throw new InvalidOperationException($"Unsupported hash call {method} in {original.FullDescription()}.");
+
+                    instruction.operand = AccessTools.Method(typeof(DeterministicHash), nameof(DeterministicHash.HashCombineInt),
+                        Enumerable.Repeat(typeof(int), parameters.Length).ToArray());
+                    replaced = true;
+                }
+
+                yield return instruction;
+            }
+
+            if (!replaced)
+                throw new InvalidOperationException($"No hash calls found in {original.FullDescription()}.");
+        }
+    }
+#else
     // Have created a patch that will handle 2-8 System.HashCode.Combine functions.
     // TODO: Check the following:
     // TileQueryParams.GetHashCode
@@ -239,4 +278,5 @@ namespace Multiplayer.Client.Patches
             return false;
         }
     }
+#endif
 }

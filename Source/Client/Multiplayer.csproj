@@ -1,11 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>$(RimWorldTargetFramework)</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>12</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <OutputPath>bin</OutputPath>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <ReleaseVersion>0.6.2</ReleaseVersion>
@@ -24,8 +24,8 @@
 
   <ItemGroup>
     <PackageReference Include="Krafs.Publicizer" Version="2.3.0" />
-    <PackageReference Include="Lib.Harmony" Version="2.4.1" ExcludeAssets="runtime" />
-    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4566" />
+    <PackageReference Include="Lib.Harmony" Version="$(MultiplayerHarmonyVersion)" ExcludeAssets="runtime" />
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="$(RimWorldRefVersion)" ExcludeAssets="runtime" />
     <PackageReference Include="RestSharp" Version="106.15.0" />
     <PackageReference Include="RimWorld.MultiplayerAPI" Version="0.6.0" />
   </ItemGroup>
@@ -36,7 +36,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Publicize Include="Assembly-CSharp;0Harmony;UnityEngine.IMGUIModule" />
+    <Publicize Include="Assembly-CSharp;0Harmony;UnityEngine.IMGUIModule" Condition="'$(RimWorldVersion)' != '1.7'" />
+    <Publicize Include="Assembly-CSharp;0Harmony;UnityStubs" Condition="'$(RimWorldVersion)' == '1.7'" />
     <DoNotPublicize Include="0Harmony:System.Runtime.CompilerServices.DefaultInterpolatedStringHandler" />
   </ItemGroup>
 
@@ -52,14 +53,14 @@
   </ItemGroup>
 
   <!-- Ignore any system frameworks and get the system assemblies from Krafs.Rimworld.Ref -->
-  <Target Name="RemoveFramework" BeforeTargets="PrepareForBuild" DependsOnTargets="GetReferenceAssemblyPaths">
+  <Target Name="RemoveFramework" BeforeTargets="PrepareForBuild" DependsOnTargets="GetReferenceAssemblyPaths" Condition="'$(RimWorldVersion)' != '1.7'">
     <PropertyGroup>
       <TargetFrameworkDirectory></TargetFrameworkDirectory>
     </PropertyGroup>
   </Target>
 
   <PropertyGroup>
-    <ModOutputPath>..\..\</ModOutputPath>
+    <ModOutputPath>../../$(RimWorldVersion)</ModOutputPath>
   </PropertyGroup>
 
   <PropertyGroup Label="Normalise stack trace file locations">
@@ -67,18 +68,14 @@
   </PropertyGroup>
 
   <Target Name="CopyToRimworld" AfterTargets="Build">
-    <Copy SourceFiles="bin\Multiplayer.dll" DestinationFiles="$(ModOutputPath)\AssembliesCustom\Multiplayer.dll" />
-    <Copy SourceFiles="bin\Multiplayer.pdb" DestinationFiles="$(ModOutputPath)\AssembliesCustom\Multiplayer.pdb" />
-    <Copy SourceFiles="bin\MultiplayerCommon.dll" DestinationFiles="$(ModOutputPath)\AssembliesCustom\MultiplayerCommon.dll" />
-    <Copy SourceFiles="bin\MultiplayerCommon.pdb" DestinationFiles="$(ModOutputPath)\AssembliesCustom\MultiplayerCommon.pdb" />
-
     <ItemGroup>
-      <CopyToRimworld_ItemsToCopy Include="bin\*.dll" Exclude="bin\Multiplayer.dll;bin\MultiplayerCommon.dll" />
+      <ModRuntimeAssemblies Include="@(ReferenceCopyLocalPaths)"
+                            Condition="'%(Extension)' == '.dll' and '%(Filename)' != 'MultiplayerCommon'" />
     </ItemGroup>
-
-    <Copy SourceFiles="@(CopyToRimworld_ItemsToCopy)" DestinationFolder="$(ModOutputPath)\Assemblies\" />
+    <Copy SourceFiles="$(TargetPath);$(TargetDir)Multiplayer.pdb;$(TargetDir)MultiplayerCommon.dll;$(TargetDir)MultiplayerCommon.pdb"
+          DestinationFolder="$(ModOutputPath)/AssembliesCustom/" />
+    <Copy SourceFiles="@(ModRuntimeAssemblies)" DestinationFolder="$(ModOutputPath)/Assemblies/" />
   </Target>
 
   <Import Project="PersonalDefinitions.targets" Condition="exists('PersonalDefinitions.targets')" />
-
 </Project>

@@ -1,6 +1,6 @@
 ﻿### This 'alpha' release is an automatically generated snapshot of the current state of development. It is continuously updated with work-in-progress changes that may be broken, incomplete, or incompatible.
 
-#### Supported RimWorld versions: latest 1.6
+#### Supported RimWorld versions: 1.6 and 1.7.5014 (unstable)
 
 #### Installation
 1. Download the `Multiplayer-beta.zip` file below.
@@ -10,6 +10,8 @@
      - Windows: `C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods`
      - Mac: `~/Library/Application Support/Steam/steamapps/common/RimWorld/RimWorldMac.app/Mods` (Right-click on `RimWorldMac.app`, then click `Show Package Contents` to see the `Mods` folder)
      - Linux: `~/.steam/steam/steamapps/common/RimWorld/Mods`
-3. Extract the zip file into the `Mods` folder.
+3. Replace the existing Multiplayer folder with the one in the zip.
+   * On 1.7, load Harmony 3 before Core and disable standalone Prepatcher.
+   * On 1.6, keep Prepatcher enabled. Host and players should use the same RimWorld and Multiplayer builds.
    * You should have a `Multiplayer` folder in the `Mods` folder (`Mods/Multiplayer`)
    * Make sure you do not have this directory structure: `Mods/Multiplayer-beta/Multiplayer`. If you do, move the `Multiplayer` folder to the parent directory.

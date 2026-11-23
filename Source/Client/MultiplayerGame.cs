@@ -65,18 +65,23 @@ namespace Multiplayer.Client
 
             SetThingMakerSeed(1);
 
+#if RW17
+            StaticDefaults.Restore();
+#else
             foreach (var field in typeof(DebugSettings).GetFields(BindingFlags.Public | BindingFlags.Static))
                 if (!field.IsLiteral && field.FieldType == typeof(bool))
                     field.SetValue(null, default(bool));
 
             typeof(DebugSettings).TypeInitializer.Invoke(null, null);
+#endif
 
             foreach (var resolver in DefDatabase<RuleDef>.AllDefs.SelectMany(r => r.resolvers))
                 if (resolver is SymbolResolver_EdgeThing edgeThing)
                     edgeThing.randomRotations = new List<int>() { 0, 1, 2, 3 };
 
+#if !RW17
             typeof(SymbolResolver_SingleThing).TypeInitializer.Invoke(null, null);
-
+#endif
             FactionCreator.ClearData();
         }
 

@@ -6,27 +6,14 @@ git submodule update --init --recursive || { echo 'git submodule update FAILED' 
 
 cd Source || exit
 dotnet build --configuration Release || { echo 'dotnet build FAILED' ; exit 1; }
+dotnet build Client/Multiplayer.csproj --configuration Release -p:RimWorldVersion=1.7 || { echo 'RimWorld 1.7 build FAILED' ; exit 1; }
 cd ..
 
 rm -rf Multiplayer/
 mkdir -p Multiplayer
 cd Multiplayer || exit
 
-# About/ and Textures/ are shared between all versions
-cp -r ../About ../Textures .
-
-cat <<EOF > LoadFolders.xml
-<loadFolders>
-  <v1.6>
-    <li>/</li>
-    <li>1.6</li>
-  </v1.6>
-  <v1.5>
-    <li>/</li>
-    <li>1.5</li>
-  </v1.5>
-</loadFolders>
-EOF
+cp -r ../About ../Textures ../LoadFolders.xml ../1.6 ../1.7 .
 
 GIT_COMMIT=$(git rev-parse --short HEAD 2>&1)
 GIT_COMMIT_STATUS=$?
@@ -39,10 +26,10 @@ fi
 sed -i "/<supportedVersions>/ a \ \ \ \ <li>1.5</li>" About/About.xml
 sed -i "s/<modVersion>.*<\/modVersion>.*\$/<modVersion>${FULL_VERSION}<\/modVersion>/" About/About.xml
 
-# The current version
-mkdir -p 1.6
-cp -r ../Assemblies ../AssembliesCustom ../Defs ../Languages 1.6/
-rm -f 1.6/Languages/.git 1.6/Languages/LICENSE 1.6/Languages/README.md
+for game_version in 1.6 1.7; do
+  cp -r ../Defs ../Languages "$game_version/"
+  rm -f "$game_version"/Languages/{.git,LICENSE,README.md}
+done
 
 # Past versions
 git clone -b rw-1.5 --depth=1 --single-branch --recurse-submodules https://github.com/rwmt/Multiplayer.git 1.5 || { echo 'Git cloning 1.5 FAILED' ; exit 1; }

@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <RimWorldVersion Condition="'$(RimWorldVersion)' == ''">1.6</RimWorldVersion>
+    <RimWorldTargetFramework Condition="'$(RimWorldVersion)' != '1.7'">net48</RimWorldTargetFramework>
+    <RimWorldRefVersion Condition="'$(RimWorldVersion)' != '1.7'">1.6.4566</RimWorldRefVersion>
+    <MultiplayerHarmonyVersion Condition="'$(RimWorldVersion)' != '1.7'">2.4.1</MultiplayerHarmonyVersion>
+    <RimWorldTargetFramework Condition="'$(RimWorldVersion)' == '1.7'">net10.0</RimWorldTargetFramework>
+    <RimWorldRefVersion Condition="'$(RimWorldVersion)' == '1.7'">1.7.5014-unstable</RimWorldRefVersion>
+    <MultiplayerHarmonyVersion Condition="'$(RimWorldVersion)' == '1.7'">3.0.0-rc.7</MultiplayerHarmonyVersion>
+    <BaseIntermediateOutputPath>obj/$(RimWorldVersion)/</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin/$(RimWorldVersion)/</BaseOutputPath>
+    <DefaultItemExcludesInProjectFolder>$(DefaultItemExcludesInProjectFolder);**/bin/**;**/obj/**</DefaultItemExcludesInProjectFolder>
+    <DefineConstants Condition="'$(RimWorldVersion)' == '1.7'">$(DefineConstants);RW17</DefineConstants>
+  </PropertyGroup>
+</Project>

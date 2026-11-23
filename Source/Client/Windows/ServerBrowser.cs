@@ -134,6 +134,7 @@ namespace Multiplayer.Client
             if (Button(MultiplayerStatic.DiscordIcon, "MpDiscordButton", "MpLinkButtonDesc".Translate() + " " + Multiplayer.DiscordLink, Color.white))
                 Application.OpenURL(Multiplayer.DiscordLink);
 
+#if !RW17
             x += 10;
             Widgets.Label(new Rect(x, 0, 400, 24), "Note: Multiplayer for 1.6 is a work in progress.");
 
@@ -145,6 +146,7 @@ namespace Multiplayer.Client
                 """;
 
             TooltipHandler.TipRegion(new Rect(x, 0, 400, 25), v15Notice);
+#endif
         }
 
         private bool filesRead;

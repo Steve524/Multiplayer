@@ -378,6 +378,12 @@ namespace Multiplayer.Client
         [DebugAction(MultiplayerLocalCategory, "Dump addr info table", allowedGameStates = /* all */ AllowedGameStates.Invalid)]
         public static void DumpAddrInfoTable()
         {
+            if (!Native.IsMono)
+            {
+                Log.Message("Multiplayer address tracing is available only on the Mono runtime.");
+                return;
+            }
+
             Log.Message($"Dumping address info table {DeferredStackTracingImpl.hashTable.Entries}");
             foreach (var addrInfo in DeferredStackTracingImpl.hashTable)
             {

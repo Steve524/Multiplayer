@@ -10,7 +10,22 @@ The RimWorld Multiplayer mod allows users to play full games of Rimworld coopera
 [Discord](https://discord.gg/S4bxXpv) |
 [Documentation](https://hackmd.io/@rimworldmultiplayer/docs/)
 
+## RimWorld 1.7
+
+This fork targets RimWorld **1.7.5014** on Steam's unstable branch. Enable Harmony 3 before Core and disable the standalone Prepatcher mod on 1.7. Keep Prepatcher enabled on 1.6. Use the same RimWorld and Multiplayer builds on the host and every client.
+
+Replace the old Multiplayer folder when installing a package. This removes any root-level `Assemblies` or `AssembliesCustom` left from the older layout.
+
 ## Development
+
+Build with the .NET 10 SDK. The default solution build targets RimWorld 1.6. For the 1.7 client, run:
+
+```sh
+dotnet build Source/Client/Multiplayer.csproj -c Release -p:RimWorldVersion=1.7
+```
+
+The game loads the DLLs from the matching `1.6/` or `1.7/` folder. Deferred Mono stack tracing is unavailable on 1.7. Multiplayer still checks for simulation desyncs.
+
 [Git Releases](https://github.com/rwmt/Multiplayer/releases) |
 [Installation](https://hackmd.io/@rimworldmultiplayer/docs/https%3A%2F%2Fhackmd.io%2F%40rimworldmultiplayer%2Fplay%23Installation) |
 [Hosting](https://hackmd.io/@rimworldmultiplayer/docs/https%3A%2F%2Fhackmd.io%2F%40rimworldmultiplayer%2Fplay%23Installation#Hosting-and-Joining) |

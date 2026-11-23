@@ -528,12 +528,14 @@ namespace Multiplayer.Client.DebugUi
         /// </summary>
         private static float DrawRngDebugSection(float x, float y, float width)
         {
-            DebugLine[] rngLines = [
+            DebugLine[] rngLines = Native.IsMono
+            ? [
                 new("Rand Calls:", $"{DeferredStackTracing.acc}", Color.white),
                 new("Max Trace Depth:", $"{DeferredStackTracing.maxTraceDepth}", Color.white),
                 new("Hash Entries:", $"{DeferredStackTracingImpl.hashTable.Entries}/{DeferredStackTracingImpl.hashTable.Size}", Color.white),
                 new("Hash Collisions:", $"{DeferredStackTracingImpl.hashTable.Collisions}", Color.white)
-            ];
+            ]
+            : [new("Deferred Stack Tracing:", "Unavailable on this runtime", Color.white)];
 
             return DrawSection(x, y, width, new("RNG & DEBUG", rngLines));
         }
