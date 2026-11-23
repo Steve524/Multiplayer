@@ -16,6 +16,11 @@ namespace MultiplayerLoader
 
         public Multiplayer(ModContentPack content) : base(content)
         {
+#if RW17
+            var harmonyVersion = typeof(HarmonyLib.Harmony).Assembly.GetName().Version;
+            if (harmonyVersion.Major < 3)
+                throw new InvalidOperationException($"Multiplayer requires Harmony 3 on RimWorld 1.7. Loaded Harmony {harmonyVersion}. Disable the standalone Prepatcher mod and update Harmony.");
+#endif
             instance = this;
             LoadAssembliesCustom();
 

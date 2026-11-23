@@ -95,6 +95,9 @@ namespace Multiplayer.Client
 #endif
 
             modContentPack = content;
+#if RW17
+            StaticDefaults.Capture();
+#endif
             Native.EarlyInit(
                 Application.platform switch
                 {
@@ -105,8 +108,11 @@ namespace Multiplayer.Client
                     _ => Native.NativeOS.Windows
                 });
 
-            DisableOmitFramePointer();
-            JittedMethods.Init();
+            if (Native.IsMono)
+            {
+                DisableOmitFramePointer();
+                JittedMethods.Init();
+            }
 
             MultiplayerLoader.Multiplayer.settingsWindowDrawer =
                 rect => MpSettingsUI.DoSettingsWindowContents(settings, rect);

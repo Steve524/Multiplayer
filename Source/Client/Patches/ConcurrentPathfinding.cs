@@ -111,11 +111,16 @@ internal static class ConcurrentPathfinding
         var copy = new NativeBitArray(source.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         try
         {
+#if RW17
+            for (int bit = 0; bit < source.Length; bit++)
+                copy.Set(bit, source.IsSet(bit));
+#else
             for (int offset = 0; offset < source.Length; offset += 64)
             {
                 int bits = Math.Min(64, source.Length - offset);
                 copy.SetBits(offset, source.GetBits(offset, bits), bits);
             }
+#endif
 
             var readOnly = copy.AsReadOnly();
             Track(finder, copy);
